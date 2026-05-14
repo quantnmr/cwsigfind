@@ -34,6 +34,15 @@
   header .status { color: var(--muted); }
   header .status.connected { color: var(--dx); }
   header .status.disconnected { color: var(--rbn); }
+  /* UTC clock pinned next to the title. Monospace + tabular numbers so the
+     digits don't jitter when the value rolls over each second. */
+  header .utc-clock { color: var(--muted); font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.5px;
+    padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--panel); }
+  header .utc-clock .label { color: var(--muted); margin-left: 4px;
+    font-size: 10px; letter-spacing: 0.5px; }
   header .spacer { flex: 1; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { padding: 3px 8px; border: 1px solid var(--border); border-radius: 12px;
@@ -276,6 +285,7 @@
 <body>
 <header>
   <h1>CWSigFind</h1>
+  <span class="utc-clock" id="utcClock" title="Current UTC time">--:--:--<span class="label">UTC</span></span>
   <span class="status" id="status">connecting…</span>
   <span class="spacer"></span>
   <div class="chips" id="sourceChips">
@@ -912,6 +922,24 @@ function flashToast(msg) {
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.style.opacity = "0"; }, 3500);
 }
+
+// --- UTC clock ---
+// Header-pinned wall clock in UTC. Logs, spots, beacons, and propagation
+// timestamps are all UTC, so showing a UTC clock in the header avoids the
+// mental conversion. Tick once per second; on a hidden tab the browser
+// throttles this to ~once a minute which is fine.
+const utcClockEl = document.getElementById("utcClock");
+function tickUtcClock() {
+  const d = new Date();
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+  // Keep the "UTC" label as a separate span so CSS can style it smaller
+  // without breaking out of textContent assignment.
+  utcClockEl.firstChild.nodeValue = `${hh}:${mm}:${ss}`;
+}
+tickUtcClock();
+setInterval(tickUtcClock, 1000);
 
 // --- spot websocket ---
 

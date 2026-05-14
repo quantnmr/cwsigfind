@@ -90,6 +90,28 @@ document.getElementById("dismissBanner").onclick = () => {
 };
 
 // ---------------------------------------------------------------------------
+// UTC clock — pinned next to the title so users don't have to mentally
+// convert local time. All spot/beacon/propagation timestamps in this app
+// are UTC, so the header clock matches the rest of the data. Tick once a
+// second; the browser throttles to once-a-minute when the tab is hidden,
+// which is fine.
+// ---------------------------------------------------------------------------
+
+const utcClockEl = document.getElementById("utcClock");
+function tickUtcClock() {
+  const d = new Date();
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+  // The element's first child is the bare HH:MM:SS text node; the second
+  // child is the "<span class='label'>UTC</span>" suffix. Mutating just the
+  // text node avoids reflow of the styled label every tick.
+  utcClockEl.firstChild.nodeValue = `${hh}:${mm}:${ss}`;
+}
+tickUtcClock();
+setInterval(tickUtcClock, 1000);
+
+// ---------------------------------------------------------------------------
 // Band chips — generated from BAND_NAMES so they match the spot.band field.
 // ---------------------------------------------------------------------------
 

@@ -60,6 +60,17 @@ header.top-bar {
 header.top-bar h1 { font-size: 14px; margin: 0; letter-spacing: 0.5px; }
 header.top-bar .tag { color: var(--muted); font-size: 11px; }
 header.top-bar .spacer { flex: 1; }
+/* UTC clock pinned next to the title. Monospace + tabular numbers so the
+   digits don't jitter when the value rolls over each second. */
+header.top-bar .utc-clock {
+  color: var(--muted); font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums; letter-spacing: 0.5px;
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg);
+}
+header.top-bar .utc-clock .label { color: var(--muted); margin-left: 4px;
+  font-size: 10px; letter-spacing: 0.5px; }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
