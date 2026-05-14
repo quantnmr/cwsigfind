@@ -160,6 +160,63 @@ tbody tr:hover { background: var(--hilite); }
 .beacons .brow .c .loc { color: var(--muted); font-weight: 400; font-size: 10px; letter-spacing: 0.2px; }
 .beacons .brow .f { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 
+/* ---------- Propagation widget (bottom-right twin of the beacons panel) ----- */
+
+.propagation {
+  position: fixed; bottom: 38px; right: 12px;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0; min-width: 240px; z-index: 5;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4); font-size: 11px;
+}
+.propagation .head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; gap: 8px;
+}
+.propagation .head strong { color: var(--accent); font-size: 11px; letter-spacing: 0.5px; }
+.propagation .head .stale { color: var(--warn); font-size: 10px; letter-spacing: 0.3px; }
+.propagation .head .toggle { color: var(--muted); }
+.propagation .body { padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+.propagation.collapsed .body { display: none; }
+.propagation.stale .body { opacity: 0.65; }
+.propagation .indices {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px;
+}
+.propagation .ix {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 4px 2px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--panel); cursor: help;
+}
+.propagation .ix .lbl {
+  color: var(--muted); font-size: 9px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.propagation .ix .val {
+  font-weight: 700; font-size: 12px;
+  font-variant-numeric: tabular-nums; margin-top: 1px;
+}
+/* Per-tier coloring on the value only — keeps the panel quiet. */
+.propagation .ix .val.dim     { color: var(--muted); }
+.propagation .ix .val.ok      { color: var(--ok); }
+.propagation .ix .val.good    { color: var(--accent); }
+.propagation .ix .val.great   { color: #b3eaff; }
+.propagation .ix .val.amber   { color: var(--warn); }
+.propagation .ix .val.red     { color: var(--err); }
+.propagation .ix .val.muted   { color: var(--muted); }
+.propagation .ix .val.neutral { color: var(--fg); }
+.propagation .lite-note {
+  color: var(--muted); font-size: 10px; line-height: 1.35;
+  border-top: 1px dashed var(--border); padding-top: 4px;
+}
+.propagation .lite-note a { color: var(--muted); text-decoration: none; }
+.propagation .lite-note a:hover { color: var(--accent); }
+.propagation .meta {
+  color: var(--muted); font-size: 10px; display: flex;
+  justify-content: space-between; align-items: center; gap: 6px;
+}
+.propagation .meta a { color: var(--muted); text-decoration: none; }
+.propagation .meta a:hover { color: var(--accent); }
+
 /* ---------- Footer ---------------------------------------------------------- */
 
 footer.bottom-bar {

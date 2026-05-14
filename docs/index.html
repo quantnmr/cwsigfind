@@ -81,6 +81,18 @@
   <div class="body" id="beaconsBody"></div>
 </div>
 
+<!-- Propagation indices widget (bottom-right, NOAA SWPC, 15-min poll).
+     The full Python daemon uses hamqsl.com instead and adds the band-by-band
+     Good/Fair/Poor table; this lite build is index-only by design. -->
+<div class="propagation" id="propagation">
+  <div class="head" id="propagationHead">
+    <strong>Propagation</strong>
+    <span class="stale" id="propagationStale" hidden>stale</span>
+    <span class="toggle" id="propagationToggle">[hide]</span>
+  </div>
+  <div class="body" id="propagationBody"></div>
+</div>
+
 <!-- Help drawer — same pattern as the full app, content trimmed to lite features. -->
 <div class="drawer-backdrop" id="drawerBackdrop"></div>
 <aside class="drawer wide" id="helpDrawer" aria-hidden="true">
@@ -96,6 +108,7 @@
         <button data-sec="sources">Spot sources</button>
         <button data-sec="programs">Activity programs</button>
         <button data-sec="usage">Using the page</button>
+        <button data-sec="propagation">Propagation indices</button>
         <button data-sec="tips">Tips</button>
         <button data-sec="full">Get the full version</button>
       </nav>
@@ -247,6 +260,47 @@
             three minutes per band; the widget recomputes every 10 seconds
             so it stays in lock-step with the schedule. Click the header to
             collapse/expand.</p>
+        </section>
+
+        <section class="help-section" data-sec="propagation">
+          <h2>Propagation indices</h2>
+          <p>The bottom-right panel shows live space-weather indices polled
+            directly from <a href="https://www.swpc.noaa.gov/" target="_blank" rel="noopener">NOAA SWPC</a>
+            every 15 minutes. Hover any index in the panel for a one-line
+            description; the longer explanations live here.</p>
+          <ul>
+            <li><strong>SFI</strong> — Solar Flux Index at 10.7 cm (2800 MHz),
+              reported daily. The classic HF propagation indicator: roughly
+              &lt;70 quiet sun, 100–150 healthy, 200+ exceptional. Higher
+              SFI generally means better high-band (15–10 m) propagation.</li>
+            <li><strong>SSN</strong> — Sunspot Number, daily observed value
+              from NOAA SWPC. Tracks the solar cycle and correlates with
+              SFI on long time scales.</li>
+            <li><strong>A</strong> — Planetary A-index: 24-hour averaged
+              geomagnetic activity. 0–7 quiet, 8–15 unsettled, 16+ active.
+              Higher A degrades HF, especially polar paths.</li>
+            <li><strong>K</strong> — Planetary K-index: 3-hour geomagnetic
+              activity on a 0–9 logarithmic scale. 0–2 quiet, 3–4 unsettled,
+              5+ stormy. Read alongside A for short-term geomagnetic state.</li>
+            <li><strong>X-ray</strong> — GOES soft X-ray flux class
+              (A/B/C/M/X). A and B are quiet-sun background; C is
+              moderate; M-class can cause brief HF blackouts on the daylit
+              side; X-class events can produce hours-long blackouts.</li>
+          </ul>
+          <h3>What the lite version doesn't show</h3>
+          <p>The full Python daemon polls <a href="https://www.hamqsl.com/solar.html" target="_blank" rel="noopener">hamqsl.com</a>
+            instead of NOAA, which adds a per-band Good/Fair/Poor table
+            (80m–40m, 30m–20m, 17m–15m, 12m–10m × day/night), plus solar
+            wind speed, Bz, geomagnetic field state, and MUF. The lite
+            build is index-only because hamqsl.com doesn't advertise CORS
+            headers, so the browser can't fetch it directly.</p>
+          <p>Sources used by the lite build:</p>
+          <ul>
+            <li><code>services.swpc.noaa.gov/products/summary/10cm-flux.json</code> — SFI</li>
+            <li><code>services.swpc.noaa.gov/products/noaa-planetary-k-index.json</code> — K + A</li>
+            <li><code>services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json</code> — X-ray class</li>
+            <li><code>services.swpc.noaa.gov/json/solar-cycle/swpc_observed_ssn.json</code> — daily SSN</li>
+          </ul>
         </section>
 
         <section class="help-section" data-sec="tips">

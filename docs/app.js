@@ -12,6 +12,7 @@ import {
   loadIotaCatalog,
   startAllPollers,
 } from "./lib/sources.js";
+import { startPropagationPoller } from "./lib/propagation.js";
 
 // ---------------------------------------------------------------------------
 // Persisted UI prefs. Anything keyed under cwsigfind:* in localStorage.
@@ -24,6 +25,7 @@ const LSK = {
   sources: LS_PREFIX + "sources",
   bands: LS_PREFIX + "bands",
   beaconsCollapsed: LS_PREFIX + "beacons-collapsed",
+  propagationCollapsed: LS_PREFIX + "propagation-collapsed",
 };
 
 function lsGet(key, fallback) {
@@ -329,6 +331,132 @@ beaconsBody.addEventListener("click", () => {
 });
 refreshBeacons();
 setInterval(refreshBeacons, 10_000);
+
+// ---------------------------------------------------------------------------
+// Propagation indices widget — bottom-right twin of the beacons panel.
+// Pulls from NOAA SWPC (browser-callable CORS) every 15 minutes; see
+// ./lib/propagation.js for the source-by-source composition.
+// ---------------------------------------------------------------------------
+
+const propagationEl = document.getElementById("propagation");
+const propagationBody = document.getElementById("propagationBody");
+const propagationHead = document.getElementById("propagationHead");
+const propagationToggle = document.getElementById("propagationToggle");
+const propagationStale = document.getElementById("propagationStale");
+
+if (lsGet(LSK.propagationCollapsed, "0") === "1") {
+  propagationEl.classList.add("collapsed");
+  propagationToggle.textContent = "[show]";
+}
+propagationHead.onclick = () => {
+  const collapsed = propagationEl.classList.toggle("collapsed");
+  propagationToggle.textContent = collapsed ? "[show]" : "[hide]";
+  lsSet(LSK.propagationCollapsed, collapsed ? "1" : "0");
+};
+
+// Color tiers — kept in sync with the full daemon's tier choices so both
+// versions agree on what "good" SFI / "stormy" K means.
+function sfiTier(n) {
+  if (n == null) return "muted";
+  if (n < 70) return "dim";
+  if (n < 100) return "ok";
+  if (n < 150) return "good";
+  return "great";
+}
+function kTier(n) {
+  if (n == null) return "muted";
+  if (n <= 2) return "ok";
+  if (n <= 4) return "amber";
+  return "red";
+}
+function aTier(n) {
+  if (n == null) return "muted";
+  if (n <= 7) return "ok";
+  if (n <= 15) return "amber";
+  return "red";
+}
+function xrayTier(s) {
+  if (!s) return "muted";
+  const letter = String(s).trim().charAt(0).toUpperCase();
+  if (letter === "A" || letter === "B") return "muted";
+  if (letter === "C") return "neutral";
+  if (letter === "M") return "amber";
+  if (letter === "X") return "red";
+  return "muted";
+}
+
+function fmtVal(v) { return v == null ? "—" : String(v); }
+
+function fmtUpdated(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}Z`;
+}
+
+function renderPropagation(snap) {
+  const hasError = !!(snap && snap.error);
+  propagationEl.classList.toggle("stale", hasError);
+  propagationStale.hidden = !hasError;
+  if (hasError) propagationStale.title = snap.error;
+  else propagationStale.removeAttribute("title");
+
+  const sfiClass = sfiTier(snap.sfi);
+  const kClass = kTier(snap.k_index);
+  const aClass = aTier(snap.a_index);
+  const xClass = xrayTier(snap.xray);
+  const ssnLabel = snap.ssn_label || "Daily SSN";
+
+  const updatedTxt = fmtUpdated(snap.updated);
+  const updatedTitle = snap.updated
+    ? `Upstream timestamp (UTC): ${snap.updated}`
+    : "No upstream timestamp yet";
+
+  propagationBody.innerHTML = `
+    <div class="indices">
+      <div class="ix" title="Solar Flux Index at 2800 MHz (10.7 cm), daily — higher is better for HF">
+        <span class="lbl">SFI</span>
+        <span class="val ${sfiClass}">${fmtVal(snap.sfi)}</span>
+      </div>
+      <div class="ix" title="${escapeHtml(ssnLabel)} from NOAA SWPC — tracks the solar cycle">
+        <span class="lbl">SSN</span>
+        <span class="val ${snap.ssn == null ? "muted" : "neutral"}">${fmtVal(snap.ssn)}</span>
+      </div>
+      <div class="ix" title="Planetary A-index — 24-hour geomagnetic activity; lower is better">
+        <span class="lbl">A</span>
+        <span class="val ${aClass}">${fmtVal(snap.a_index)}</span>
+      </div>
+      <div class="ix" title="Planetary K-index — 3-hour geomagnetic activity (0–9); 0–2 quiet, 5+ stormy">
+        <span class="lbl">K</span>
+        <span class="val ${kClass}">${fmtVal(snap.k_index)}</span>
+      </div>
+      <div class="ix" title="GOES X-ray class (A/B/C/M/X) — M and X can briefly black out HF">
+        <span class="lbl">X-ray</span>
+        <span class="val ${xClass}">${escapeHtml(snap.xray || "—")}</span>
+      </div>
+    </div>
+    <div class="lite-note" title="The full Python daemon polls hamqsl.com and adds a Good/Fair/Poor table for the four hamqsl band buckets.">
+      Lite build is index-only. The
+      <a href="https://github.com/quantnmr/cwsigfind#full-python-daemon" target="_blank" rel="noopener">full Python daemon</a>
+      adds per-band HF Good/Fair/Poor.
+    </div>
+    <div class="meta">
+      <span title="${escapeHtml(updatedTitle)}">Updated ${escapeHtml(updatedTxt)}</span>
+      <a href="https://www.swpc.noaa.gov/" target="_blank" rel="noopener"
+         title="NOAA Space Weather Prediction Center">NOAA SWPC</a>
+    </div>
+  `;
+}
+
+// Boot the panel with an obvious "loading" state so the user sees the panel
+// shell immediately, even before the first NOAA fetch returns.
+renderPropagation({
+  sfi: null, ssn: null, a_index: null, k_index: null, xray: null,
+  hf_conditions: {}, updated: null, error: null,
+});
+startPropagationPoller((snap) => renderPropagation(snap), 15 * 60 * 1000);
 
 // ---------------------------------------------------------------------------
 // Source freshness widget (rendered inside Help → Overview).

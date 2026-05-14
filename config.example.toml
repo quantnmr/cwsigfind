@@ -97,3 +97,17 @@ port = 8765
 # If a saved rig config exists in ~/.cwsigfind/rig.json, try to reconnect on
 # startup. Set to false if you'd rather click Connect manually each time.
 auto_connect = true
+
+[propagation]
+# Space-weather / HF propagation indices panel (bottom-right of the web UI).
+# Polls https://www.hamqsl.com/solarxml.php — the canonical N0NBH ham-radio
+# feed — server-side, since it doesn't advertise CORS headers and so the
+# browser couldn't fetch it directly.
+enabled = true
+# Currently the only supported source. Leaving the knob in the TOML schema so
+# an alternate provider (e.g. NOAA SWPC) can be wired in later without a
+# breaking config change.
+source = "hamqsl"
+# Upstream refreshes about hourly. Default 15 minutes; the daemon enforces a
+# 5-minute floor regardless of what you set here.
+poll_interval_s = 900

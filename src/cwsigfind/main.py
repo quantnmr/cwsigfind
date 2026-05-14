@@ -13,6 +13,7 @@ import uvicorn
 from .bus import SpotBus
 from .config import Config, load_config
 from . import iota
+from . import propagation
 from .rig import RigController, load_saved_rig
 from .sources.base import SpotSource
 from .sources.dxcluster import DXClusterSource
@@ -99,6 +100,16 @@ async def amain(config_path: Path) -> None:
     # round-trip to iota-world.org if it's slow or down.
     iota_task = asyncio.create_task(iota.init_catalog(), name="iota-init")
 
+    # Space-weather indices: hamqsl.com has no CORS headers, so the daemon
+    # polls it on the user's behalf. Run as a managed background task with a
+    # configurable interval (15 min default, 5 min minimum).
+    propagation_task: asyncio.Task[None] | None = None
+    if cfg.propagation.enabled:
+        propagation_task = asyncio.create_task(
+            propagation.run_loop(poll_interval_s=cfg.propagation.poll_interval_s),
+            name="propagation",
+        )
+
     bus = SpotBus()
     store = SpotStore()
     sources = _build_sources(cfg, bus, store)
@@ -183,6 +194,12 @@ async def amain(config_path: Path) -> None:
             iota_task.cancel()
             try:
                 await iota_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        if propagation_task is not None and not propagation_task.done():
+            propagation_task.cancel()
+            try:
+                await propagation_task
             except (asyncio.CancelledError, Exception):
                 pass
         try:

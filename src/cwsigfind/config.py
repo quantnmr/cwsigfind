@@ -59,6 +59,19 @@ class RigSettings:
 
 
 @dataclass
+class PropagationConfig:
+    """Settings for the space-weather indices panel.
+
+    ``source`` is currently always ``"hamqsl"``; carrying it explicitly leaves
+    room for an alternate provider later without changing the schema.
+    """
+
+    enabled: bool = True
+    source: str = "hamqsl"
+    poll_interval_s: float = 900.0  # 15 minutes
+
+
+@dataclass
 class Config:
     callsign: str = "N0CALL"
     spot_filter: SpotFilter = field(default_factory=SpotFilter)
@@ -70,6 +83,7 @@ class Config:
     clusters: list[ClusterConfig] = field(default_factory=list)
     web: WebConfig = field(default_factory=WebConfig)
     rig: RigSettings = field(default_factory=RigSettings)
+    propagation: PropagationConfig = field(default_factory=PropagationConfig)
 
 
 def _parse_source(raw: dict | None) -> SourceConfig:
@@ -167,6 +181,18 @@ def load_config(path: Path) -> Config:
     r = raw.get("rig", {}) or {}
     rig = RigSettings(auto_connect=bool(r.get("auto_connect", True)))
 
+    p = raw.get("propagation", {}) or {}
+    propagation = PropagationConfig(
+        enabled=bool(p.get("enabled", True)),
+        source=str(p.get("source", "hamqsl")),
+        # Floor is enforced again in propagation.run_loop, but we also clamp
+        # here so misconfigured TOMLs don't silently get rounded up later.
+        poll_interval_s=max(
+            300.0,
+            float(p.get("poll_interval_s", p.get("poll_interval_seconds", 900.0))),
+        ),
+    )
+
     return Config(
         callsign=str(raw.get("callsign", "N0CALL")),
         spot_filter=spot_filter,
@@ -175,4 +201,5 @@ def load_config(path: Path) -> Config:
         clusters=clusters,
         web=web,
         rig=rig,
+        propagation=propagation,
     )

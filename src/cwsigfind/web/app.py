@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from ..beacons import current_beacon
 from ..bus import SpotBus
 from ..filters import SpotFilter
+from ..propagation import get_snapshot as get_propagation_snapshot
 from ..rig import (
     DEFAULT_BAUD_RATES,
     DEFAULT_LISTEN_PORT,
@@ -69,6 +70,17 @@ def create_app(
     async def get_spots(limit: int = 200) -> JSONResponse:
         spots = store.recent(min(max(limit, 1), 1000))
         return JSONResponse([_spot_to_dict(s) for s in spots])
+
+    @app.get("/api/propagation")
+    async def propagation_now() -> JSONResponse:
+        """Latest cached propagation snapshot from hamqsl.com.
+
+        Always returns 200 with the snapshot's last-known values; ``error`` is
+        set when the most recent server-side fetch failed so the UI can show a
+        stale indicator without losing the previous values.
+        """
+        snap = get_propagation_snapshot()
+        return JSONResponse(snap.to_json_dict())
 
     @app.get("/api/beacons/current")
     async def beacons_now() -> JSONResponse:

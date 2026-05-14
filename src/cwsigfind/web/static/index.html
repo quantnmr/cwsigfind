@@ -87,7 +87,9 @@
   .prog.BOTA { color: var(--bota); }
   .prog.WCA  { color: var(--wca); }
 
-  /* Beacons widget — collapsible sidebar panel pinned bottom-left. */
+  /* Beacons widget — collapsible sidebar panel pinned bottom-left.
+     The Propagation widget below mirrors this on the right; the two share
+     dimensions and the .head/.body collapsing pattern. */
   .beacons {
     position: fixed; bottom: 38px; left: 12px;
     background: var(--panel2); border: 1px solid var(--border);
@@ -118,6 +120,59 @@
     font-size: 10px; letter-spacing: 0.2px; }
   .beacons .brow .f { color: var(--muted); text-align: right;
     font-variant-numeric: tabular-nums; }
+  /* Propagation widget — bottom-right twin of the beacons panel. */
+  .propagation {
+    position: fixed; bottom: 38px; right: 12px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0; min-width: 240px; z-index: 5;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4); font-size: 11px;
+  }
+  .propagation .head { display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer;
+    user-select: none; gap: 8px; }
+  .propagation .head strong { color: var(--accent); font-size: 11px; letter-spacing: 0.5px; }
+  .propagation .head .stale { color: var(--warn); font-size: 10px; letter-spacing: 0.3px; }
+  .propagation .head .toggle { color: var(--muted); }
+  .propagation .body { padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .propagation.collapsed .body { display: none; }
+  .propagation.stale .body { opacity: 0.65; }
+  .propagation .indices { display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .propagation .ix { display: flex; flex-direction: column; align-items: center;
+    padding: 4px 2px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--panel); cursor: help; }
+  .propagation .ix .lbl { color: var(--muted); font-size: 9px;
+    letter-spacing: 0.5px; text-transform: uppercase; }
+  .propagation .ix .val { font-weight: 700; font-size: 12px;
+    font-variant-numeric: tabular-nums; margin-top: 1px; }
+  /* Per-tier coloring on the *value* only, not the surrounding chip — keeps
+     the panel quiet but still legible. */
+  .propagation .ix .val.dim   { color: var(--muted); }
+  .propagation .ix .val.ok    { color: var(--ok); }
+  .propagation .ix .val.good  { color: var(--accent); }
+  .propagation .ix .val.great { color: #b3eaff; }
+  .propagation .ix .val.amber { color: var(--warn); }
+  .propagation .ix .val.red   { color: var(--err); }
+  .propagation .ix .val.muted { color: var(--muted); }
+  .propagation .ix .val.neutral { color: var(--fg); }
+  .propagation .bands {
+    display: grid; grid-template-columns: auto repeat(2, minmax(0, 1fr));
+    gap: 2px 6px; font-size: 10px; padding: 2px 0;
+  }
+  .propagation .bands .b-h { color: var(--muted); text-align: center;
+    text-transform: uppercase; letter-spacing: 0.5px; font-size: 9px; }
+  .propagation .bands .b-label { color: var(--muted); }
+  .propagation .bands .b-cell { padding: 1px 4px; border-radius: 2px;
+    text-align: center; border: 1px solid var(--border); }
+  .propagation .bands .b-cell.Good { color: var(--ok); border-color: var(--ok); }
+  .propagation .bands .b-cell.Fair { color: var(--warn); border-color: var(--warn); }
+  .propagation .bands .b-cell.Poor { color: var(--err); border-color: var(--err); }
+  .propagation .bands .b-cell.unknown { color: var(--muted); }
+  .propagation .meta { color: var(--muted); font-size: 10px; display: flex;
+    justify-content: space-between; align-items: center; gap: 6px; }
+  .propagation .meta a { color: var(--muted); text-decoration: none; }
+  .propagation .meta a:hover { color: var(--accent); }
+
   .call { font-weight: 700; }
   .freq { text-align: right; }
   .comment { color: var(--muted); white-space: normal; max-width: 480px; }
@@ -279,6 +334,18 @@
     <span class="toggle" id="beaconsToggle">[hide]</span>
   </div>
   <div class="body" id="beaconsBody">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- Propagation indices snapshot from hamqsl.com (N0NBH), polled server-side. -->
+<div class="propagation" id="propagation">
+  <div class="head" id="propagationHead">
+    <strong>Propagation</strong>
+    <span class="stale" id="propagationStale" hidden>stale</span>
+    <span class="toggle" id="propagationToggle">[hide]</span>
+  </div>
+  <div class="body" id="propagationBody">
     <!-- populated by JS -->
   </div>
 </div>
@@ -554,6 +621,28 @@
             collapse/expand. <strong>Click any beacon row</strong> to tune
             your radio to that beacon (always CW) — useful for a quick
             propagation sanity-check on a given band.</p>
+
+          <h3>Propagation panel</h3>
+          <p>Bottom-right panel: live space-weather indices polled from
+            <a href="https://www.hamqsl.com/solar.html" target="_blank" rel="noopener">hamqsl.com</a>
+            every 15 minutes server-side (the UI re-reads the cache every 5
+            minutes). Includes:</p>
+          <ul>
+            <li><strong>SFI</strong> — solar flux at 2800 MHz (10.7 cm).
+              Higher is better for HF.</li>
+            <li><strong>SSN</strong> — daily sunspot number from N0NBH.</li>
+            <li><strong>A</strong> — planetary A-index (24-hour geomagnetic
+              activity). Lower is better.</li>
+            <li><strong>K</strong> — planetary K-index (3-hour geomagnetic
+              activity, 0–9). 0–2 quiet, 3–4 unsettled, 5+ stormy.</li>
+            <li><strong>X-ray</strong> — GOES X-ray class (A/B/C/M/X). M and
+              X classes can briefly black out HF on the daylit side.</li>
+          </ul>
+          <p>Below the indices: the four hamqsl band buckets (80m–40m,
+            30m–20m, 17m–15m, 12m–10m) coloured Good / Fair / Poor for both
+            day and night. If the latest server-side fetch failed, the panel
+            dims and shows a "stale" indicator while keeping the
+            last-known values visible.</p>
         </section>
 
         <section class="help-section" data-sec="tips">
@@ -1172,6 +1261,159 @@ refreshBeacons();
 // Each beacon slot is 10s. Poll matches that cadence so the highlighted
 // station rotates in real time without saturating the daemon.
 setInterval(refreshBeacons, 10000);
+
+// --- Propagation indices widget ---
+//
+// The daemon polls hamqsl.com every 15 minutes (server-side because hamqsl
+// doesn't advertise CORS). The UI re-reads /api/propagation every 5 minutes
+// so it picks up freshly cached snapshots promptly without hammering the
+// daemon. Field semantics: see src/cwsigfind/propagation.py.
+
+const propagationEl = document.getElementById("propagation");
+const propagationHead = document.getElementById("propagationHead");
+const propagationBody = document.getElementById("propagationBody");
+const propagationToggle = document.getElementById("propagationToggle");
+const propagationStale = document.getElementById("propagationStale");
+
+propagationHead.onclick = () => {
+  const collapsed = propagationEl.classList.toggle("collapsed");
+  propagationToggle.textContent = collapsed ? "[show]" : "[hide]";
+};
+
+// Color tiers — kept here (not CSS-only) so the JS can pick a class based on
+// the numeric value. CSS owns the actual colors.
+function sfiTier(n) {
+  if (n == null) return "muted";
+  if (n < 70) return "dim";
+  if (n < 100) return "ok";
+  if (n < 150) return "good";
+  return "great";
+}
+function kTier(n) {
+  if (n == null) return "muted";
+  if (n <= 2) return "ok";
+  if (n <= 4) return "amber";
+  return "red";
+}
+function aTier(n) {
+  if (n == null) return "muted";
+  if (n <= 7) return "ok";
+  if (n <= 15) return "amber";
+  return "red";
+}
+function xrayTier(s) {
+  if (!s) return "muted";
+  const letter = String(s).trim().charAt(0).toUpperCase();
+  if (letter === "A" || letter === "B") return "muted";
+  if (letter === "C") return "neutral";
+  if (letter === "M") return "amber";
+  if (letter === "X") return "red";
+  return "muted";
+}
+
+function fmtVal(v) {
+  return v == null ? "—" : String(v);
+}
+
+function fmtUpdated(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}Z`;
+}
+
+// hamqsl emits four band buckets in a fixed order; mirror that order in the
+// UI so the daytime/nighttime grid is visually consistent.
+const HF_BANDS = ["80m-40m", "30m-20m", "17m-15m", "12m-10m"];
+
+function renderPropagation(snap) {
+  const hasError = !!(snap && snap.error);
+  propagationEl.classList.toggle("stale", hasError);
+  propagationStale.hidden = !hasError;
+  if (hasError) {
+    propagationStale.title = `Last fetch failed: ${snap.error}`;
+  } else {
+    propagationStale.removeAttribute("title");
+  }
+
+  const sfiClass = sfiTier(snap.sfi);
+  const kClass = kTier(snap.k_index);
+  const aClass = aTier(snap.a_index);
+  const xClass = xrayTier(snap.xray);
+
+  const cells = HF_BANDS.map((band) => {
+    const slot = (snap.hf_conditions && snap.hf_conditions[band]) || {};
+    const day = slot.day || "";
+    const night = slot.night || "";
+    const cls = (s) => (["Good", "Fair", "Poor"].includes(s) ? s : "unknown");
+    const lbl = (s) => (s || "—");
+    return (
+      `<span class="b-label">${escapeHtml(band)}</span>` +
+      `<span class="b-cell ${cls(day)}" title="${escapeHtml(band)} · day · ${escapeHtml(lbl(day))}">${escapeHtml(lbl(day))}</span>` +
+      `<span class="b-cell ${cls(night)}" title="${escapeHtml(band)} · night · ${escapeHtml(lbl(night))}">${escapeHtml(lbl(night))}</span>`
+    );
+  }).join("");
+
+  const updatedTxt = fmtUpdated(snap.updated);
+  const updatedTitle = snap.updated
+    ? `Upstream timestamp (UTC): ${snap.updated}`
+    : "No upstream timestamp yet";
+  const geomag = snap.geomag_field ? ` · ${escapeHtml(snap.geomag_field)}` : "";
+
+  propagationBody.innerHTML = `
+    <div class="indices">
+      <div class="ix" title="Solar Flux Index (10.7 cm), daily">
+        <span class="lbl">SFI</span>
+        <span class="val ${sfiClass}">${fmtVal(snap.sfi)}</span>
+      </div>
+      <div class="ix" title="Daily Sunspot Number (N0NBH)">
+        <span class="lbl">SSN</span>
+        <span class="val ${snap.ssn == null ? "muted" : "neutral"}">${fmtVal(snap.ssn)}</span>
+      </div>
+      <div class="ix" title="Planetary A-index (24-hour averaged geomagnetic activity)">
+        <span class="lbl">A</span>
+        <span class="val ${aClass}">${fmtVal(snap.a_index)}</span>
+      </div>
+      <div class="ix" title="Planetary K-index (3-hour geomagnetic activity, 0–9)">
+        <span class="lbl">K</span>
+        <span class="val ${kClass}">${fmtVal(snap.k_index)}</span>
+      </div>
+      <div class="ix" title="GOES X-ray flux class (A/B/C/M/X)">
+        <span class="lbl">X-ray</span>
+        <span class="val ${xClass}">${escapeHtml(snap.xray || "—")}</span>
+      </div>
+    </div>
+    <div class="bands" title="HF band conditions estimated by N0NBH">
+      <span class="b-h"></span>
+      <span class="b-h">Day</span>
+      <span class="b-h">Night</span>
+      ${cells}
+    </div>
+    <div class="meta">
+      <span title="${escapeHtml(updatedTitle)}">Updated ${escapeHtml(updatedTxt)}</span>
+      <a href="https://www.hamqsl.com/solar.html" target="_blank" rel="noopener"
+         title="hamqsl.com solar conditions (N0NBH)">N0NBH</a>
+    </div>
+  `;
+}
+
+async function refreshPropagation() {
+  try {
+    const r = await fetch("/api/propagation");
+    if (!r.ok) return;
+    const snap = await r.json();
+    renderPropagation(snap);
+  } catch (e) {
+    // Network blip — next tick will retry. The currently-rendered panel
+    // (which may already be flagged stale by the server) stays in place.
+  }
+}
+refreshPropagation();
+// Server polls upstream every 15 min; we re-read the cache every 5 min so a
+// freshly-fetched snapshot surfaces in the UI without forcing a reload.
+setInterval(refreshPropagation, 5 * 60 * 1000);
 </script>
 </body>
 </html>
