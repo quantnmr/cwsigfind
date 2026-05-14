@@ -1,0 +1,59 @@
+name: Refresh IOTA catalog
+
+# Re-download docs/iota_groups.json from iota-world.org on a weekly cadence so
+# the lite browser demo stays current. iota-world.org has no CORS headers,
+# which is why the catalog ships same-origin under docs/ instead of being
+# fetched from the browser.
+
+on:
+  schedule:
+    # Mondays 06:00 UTC. IOTA itself publishes daily at 00:00 UTC; once a week
+    # is plenty in practice — new groups land maybe a few times a year.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download fresh IOTA groups
+        id: download
+        run: |
+          set -euo pipefail
+          mkdir -p docs
+          tmp="$(mktemp)"
+          curl -fsSL --max-time 60 \
+            -o "$tmp" \
+            "https://www.iota-world.org/islands-on-the-air/downloads/download-file.html?path=groups.json"
+
+          # Quick sanity check — IOTA always returns a JSON array of objects
+          # with at least a `refno` field. Reject obvious garbage so we don't
+          # accidentally commit an HTML error page.
+          python3 -c "
+          import json, sys
+          data = json.load(open('$tmp'))
+          assert isinstance(data, list) and len(data) > 100, 'unexpected payload'
+          assert 'refno' in data[0], 'missing refno'
+          print(f'OK: {len(data)} groups')
+          "
+          mv "$tmp" docs/iota_groups.json
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/iota_groups.json; then
+            echo "No change in IOTA catalog — skipping commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/iota_groups.json
+          git commit -m "chore(iota): refresh groups catalog ($(date -u +%Y-%m-%d))"
+          git push

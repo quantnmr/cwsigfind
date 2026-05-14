@@ -1,0 +1,99 @@
+# CWSigFind configuration. Copy to `config.toml` and edit.
+
+# Your amateur callsign. Required for DX cluster + RBN telnet logins.
+# Leave as N0CALL if you only want to use the POTA / SOTA / WWFF feeds.
+callsign = "N0CALL"
+
+[filter]
+# Default UI/source filter. Empty lists mean "no constraint".
+# Modes are matched case-insensitively against the spot's mode field.
+modes = ["CW"]
+# Band names as emitted by spot.band (e.g. "40m", "20m"). Empty = all bands.
+bands = []
+# POTA region patterns matched against `locationDesc` (e.g. "US-AZ", "CA-ON").
+# Each entry is a Python regex; case-insensitive. Empty = worldwide.
+# Example for North America only: regions = ["^US-", "^CA-"]
+regions = []
+# Optional callsign prefix filter (e.g. ["W", "K", "N", "AA"]). Empty = all.
+callsign_prefixes = []
+
+[sources.pota]
+enabled = true
+poll_interval_seconds = 30
+
+[sources.sota]
+# Summits On The Air spots from api2.sota.org.uk — public, no auth.
+enabled = true
+poll_interval_seconds = 60
+
+[sources.wwff]
+# WWFF (World Wide Flora & Fauna) park spots — Spotline JSON feed.
+# Polite default; do not go below 30 seconds.
+enabled = true
+poll_interval_seconds = 30
+request_timeout_seconds = 10
+
+[sources.wwbota]
+# WWBOTA (Bunkers On The Air) spots via api.wwbota.org.
+# Polite default; never go below 60 seconds.
+enabled = true
+poll_interval_seconds = 60
+request_timeout_seconds = 15
+
+# ---------------------------------------------------------------------------
+# DX cluster nodes. The daemon supports any number of simultaneous cluster
+# connections, supervised independently with crash-restart-with-backoff. Each
+# spot is tagged with source="DX" so the UI source-chip filter doesn't
+# multiply; the cluster `name` is prefixed onto the spot's comment so you can
+# still see which node delivered it.
+# ---------------------------------------------------------------------------
+
+[[sources.dxcluster]]
+name = "NC7J"
+enabled = true
+host = "dxc.nc7j.com"
+port = 7373
+# Commands sent after login. Useful: "SH/DX 25" to seed recent history,
+# "SET/FT8 OFF", "SET/SKIMMER OFF" to reduce noise, etc. Node-specific.
+login_commands = []
+auto_reconnect_seconds = 5
+
+[[sources.dxcluster]]
+name = "S50CLX"
+enabled = true
+host = "s50clx.infrax.si"
+port = 41112
+# S50CLX speaks AR-Cluster — ACC/SPOTS is the spot-filter syntax. The default
+# below funnels only activity-tagged spots (POTA / SOTA / WWFF / BOTA / HEMA),
+# which is exactly the cwsigfind audience.
+login_commands = [
+    "ACC/SPOTS INFO -POTA- OR INFO -SOTA- OR INFO -WWFF- OR INFO -BOTA- OR INFO -HEMA-",
+]
+auto_reconnect_seconds = 5
+
+[[sources.dxcluster]]
+name = "DXMAPS"
+# DXMAPS is a VHF/UHF + RBN integration cluster. Off by default since HF
+# operators rarely benefit from its noisy 50 MHz+ spot volume.
+enabled = false
+host = "dxmaps.com"
+port = 7300
+login_commands = []
+auto_reconnect_seconds = 5
+
+[sources.rbn]
+# Off by default — RBN is a high-volume CW skimmer firehose. Turn on once
+# you've set band/region filters.
+enabled = false
+host = "telnet.reversebeacon.net"
+port = 7000
+login_commands = []
+
+[web]
+host = "127.0.0.1"
+port = 8765
+
+[rig]
+# If a saved rig config exists in ~/.cwsigfind/rig.json, try to reconnect on
+# startup. Set to false if you'd rather click Connect manually each time.
+auto_connect = true

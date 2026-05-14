@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# uv — uv.lock is intentionally committed; only the local Python pin is ignored.
+.python-version
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local config (real callsigns, secrets)
+config.toml
+config.local.toml
+
+# Logs
+*.log
+logs/
+
+# Daemon's per-user state directory
+.cwsigfind/
+
+# Scratch
+/tmp/

@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CWSigFind — Live Spots</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14181d;
+    --panel2: #181d23;
+    --border: #232a32;
+    --fg: #e6e6e6;
+    --muted: #8a9099;
+    --accent: #6fd3ff;
+    --pota: #ffcb6b;
+    --dx: #c3e88d;
+    --rbn: #f78c6c;
+    --wwff: #82d68a;
+    --bota: #d6b48a;
+    --wca: #b78cf2;
+    --hilite: #2a3340;
+    --ok: #92e8a0;
+    --warn: #ffd479;
+    --err: #ff8b8b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 13px; height: 100%; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 14px; margin: 0; letter-spacing: 0.5px; }
+  header .status { color: var(--muted); }
+  header .status.connected { color: var(--dx); }
+  header .status.disconnected { color: var(--rbn); }
+  header .spacer { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 3px 8px; border: 1px solid var(--border); border-radius: 12px;
+    cursor: pointer; user-select: none; color: var(--muted); background: transparent;
+    font-family: inherit; font-size: 12px; }
+  .chip.active { background: var(--hilite); color: var(--fg); border-color: var(--accent); }
+  input[type=text], select { background: var(--panel); border: 1px solid var(--border);
+    color: var(--fg); padding: 4px 8px; border-radius: 4px; font-family: inherit;
+    font-size: 12px; }
+  input[type=text] { min-width: 200px; }
+  button { background: var(--panel); border: 1px solid var(--border); color: var(--fg);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 12px; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+  button.danger  { border-color: var(--err);    color: var(--err); }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th { position: sticky; top: 0; background: var(--panel); text-align: left;
+    padding: 6px 10px; font-weight: 600; border-bottom: 1px solid var(--border);
+    color: var(--muted); z-index: 1; }
+  tbody td { padding: 4px 10px; border-bottom: 1px solid #1a1f25; vertical-align: top;
+    white-space: nowrap; }
+  tbody tr { cursor: pointer; }
+  tbody tr.rig-off { cursor: help; }
+  tbody tr:hover { background: var(--hilite); }
+  tbody tr.tuning { background: rgba(111,211,255,0.15); }
+  tbody tr.tune-ok    { animation: flash-ok    1.2s ease-out; }
+  tbody tr.tune-fail  { animation: flash-fail  1.6s ease-out; }
+  @keyframes flash-ok {
+    from { background: rgba(146,232,160,0.45); }
+    to   { background: transparent; }
+  }
+  @keyframes flash-fail {
+    from { background: rgba(255,139,139,0.45); }
+    to   { background: transparent; }
+  }
+  .src-POTA { color: var(--pota); }
+  .src-DX   { color: var(--dx); }
+  .src-RBN  { color: var(--rbn); }
+  .src-SOTA { color: #c792ea; }
+  .src-WWFF { color: var(--wwff); }
+  .src-BOTA { color: var(--bota); }
+  .prog { display: inline-block; padding: 0 5px; font-size: 10px;
+    border-radius: 3px; margin-right: 4px; vertical-align: 1px;
+    border: 1px solid currentColor; }
+  .prog.POTA { color: var(--pota); }
+  .prog.SOTA { color: #c792ea; }
+  .prog.IOTA { color: #ff9e9e; }
+  .prog.WWFF { color: var(--wwff); }
+  .prog.BOTA { color: var(--bota); }
+  .prog.WCA  { color: var(--wca); }
+
+  /* Beacons widget — collapsible sidebar panel pinned bottom-left. */
+  .beacons {
+    position: fixed; bottom: 38px; left: 12px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0; min-width: 200px; z-index: 5;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4); font-size: 11px;
+  }
+  .beacons .head { display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer;
+    user-select: none; }
+  .beacons .head strong { color: var(--accent); font-size: 11px; letter-spacing: 0.5px; }
+  .beacons .head .toggle { color: var(--muted); }
+  .beacons .body { padding: 4px 4px; display: flex; flex-direction: column; gap: 1px; }
+  .beacons.collapsed .body { display: none; }
+  /* Each beacon is its own clickable row — same UX as the spot table. */
+  .beacons .brow { display: grid; grid-template-columns: auto 1fr auto;
+    gap: 2px 10px; align-items: baseline; padding: 2px 6px;
+    border-radius: 3px; cursor: pointer; user-select: none; }
+  .beacons .brow:hover { background: var(--hilite); }
+  .beacons .brow.tuning { background: rgba(111,211,255,0.18); }
+  .beacons .brow.tune-ok   { animation: flash-ok   1.2s ease-out; }
+  .beacons .brow.tune-fail { animation: flash-fail 1.6s ease-out; }
+  .beacons .brow .b { color: var(--muted); }
+  /* Callsign over location, stacked, so we can show the country without
+     widening the panel. Location wraps in muted text below the callsign. */
+  .beacons .brow .c { color: var(--fg); font-weight: 600;
+    display: flex; flex-direction: column; line-height: 1.15; }
+  .beacons .brow .c .loc { color: var(--muted); font-weight: 400;
+    font-size: 10px; letter-spacing: 0.2px; }
+  .beacons .brow .f { color: var(--muted); text-align: right;
+    font-variant-numeric: tabular-nums; }
+  .call { font-weight: 700; }
+  .freq { text-align: right; }
+  .comment { color: var(--muted); white-space: normal; max-width: 480px; }
+  .park { color: var(--accent); }
+  .country .state { color: var(--muted); }
+  .new-row { animation: flash 1.4s ease-out; }
+  @keyframes flash {
+    from { background: rgba(111,211,255,0.25); }
+    to   { background: transparent; }
+  }
+  footer { padding: 6px 14px; color: var(--muted); border-top: 1px solid var(--border);
+    background: var(--panel); position: sticky; bottom: 0; display: flex; gap: 16px; align-items: center; }
+  footer .spacer { flex: 1; }
+  .rig-pill { padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border);
+    font-size: 11px; }
+  .rig-pill.connected    { color: var(--ok);   border-color: var(--ok); }
+  .rig-pill.connecting   { color: var(--warn); border-color: var(--warn); }
+  .rig-pill.error        { color: var(--err);  border-color: var(--err); }
+  .rig-pill.disconnected { color: var(--muted); }
+
+  /* Drawer */
+  .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; z-index: 10; }
+  .drawer-backdrop.open { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(420px, 100vw);
+    background: var(--panel2); border-left: 1px solid var(--border); transform: translateX(100%);
+    transition: transform 0.18s ease-out; z-index: 11; display: flex; flex-direction: column; }
+  .drawer.open { transform: translateX(0); }
+  .drawer header { background: transparent; border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  .drawer .body { padding: 12px 16px; overflow: auto; flex: 1; }
+  .drawer .footer-actions { padding: 12px 16px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .field label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field select, .field input { width: 100%; padding: 6px 8px; font-size: 13px; }
+  .rig-status-block { background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; }
+  .rig-status-block .row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .rig-status-block .row .k { color: var(--muted); }
+  .rig-status-block .err { color: var(--err); white-space: pre-wrap; font-size: 12px; margin-top: 6px; }
+
+  /* Help drawer — same drawer pattern as Radio, just wider and with its own
+     left-side section nav so docs don't become an endless scroll. */
+  .drawer.wide { width: min(720px, 100vw); }
+  .help-layout { display: grid; grid-template-columns: 140px 1fr;
+    gap: 0; height: 100%; min-height: 0; }
+  .help-nav { border-right: 1px solid var(--border); padding: 8px 0;
+    overflow-y: auto; background: var(--panel); }
+  .help-nav button { display: block; width: 100%; text-align: left;
+    border: none; border-left: 2px solid transparent; border-radius: 0;
+    background: transparent; color: var(--muted); padding: 6px 12px;
+    font-size: 12px; }
+  .help-nav button:hover { color: var(--fg); border-color: transparent; }
+  .help-nav button.active { color: var(--fg); border-left-color: var(--accent);
+    background: var(--panel2); }
+  .help-content { padding: 14px 18px; overflow-y: auto; }
+  .help-section { display: none; }
+  .help-section.active { display: block; }
+  .help-section h2 { font-size: 14px; margin: 0 0 8px; color: var(--accent);
+    letter-spacing: 0.5px; }
+  .help-section h3 { font-size: 12px; margin: 14px 0 4px; color: var(--fg);
+    text-transform: uppercase; letter-spacing: 0.5px; }
+  .help-section p { margin: 4px 0 10px; line-height: 1.5; color: var(--fg); }
+  .help-section p.muted { color: var(--muted); }
+  .help-section ul { margin: 4px 0 10px; padding-left: 18px; line-height: 1.55; }
+  .help-section ul li { margin: 3px 0; }
+  .help-section code { background: var(--panel); border: 1px solid var(--border);
+    border-radius: 3px; padding: 0 4px; font-size: 12px; }
+  .help-section a { color: var(--accent); text-decoration: none; }
+  .help-section a:hover { text-decoration: underline; }
+  .help-section .kbd { display: inline-block; min-width: 18px; text-align: center;
+    background: var(--panel); border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 6px; font-size: 11px; color: var(--fg); }
+
+  /* Source-card grid in the "Spot sources" doc section. Mirrors the existing
+     chip/badge colors so the docs feel like the same surface. */
+  .src-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .src-card { border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; background: var(--panel); }
+  .src-card .row1 { display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; margin-bottom: 4px; }
+  .src-card .name { font-weight: 700; }
+  .src-card .level { color: var(--muted); font-size: 11px; margin-left: auto; }
+  .src-card p { margin: 4px 0; }
+  .src-card .meta { color: var(--muted); font-size: 11px; }
+  .help-badge { display: inline-block; padding: 1px 7px; border-radius: 10px;
+    border: 1px solid currentColor; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.5px; }
+  .help-badge.POTA { color: var(--pota); }
+  .help-badge.SOTA { color: #c792ea; }
+  .help-badge.IOTA { color: #ff9e9e; }
+  .help-badge.WWFF { color: var(--wwff); }
+  .help-badge.BOTA { color: var(--bota); }
+  .help-badge.DX   { color: var(--dx); }
+  .help-badge.RBN  { color: var(--rbn); }
+  .help-badge.WCA  { color: var(--wca); }
+  .bolt { color: var(--warn); letter-spacing: 1px; }
+
+</style>
+</head>
+<body>
+<header>
+  <h1>CWSigFind</h1>
+  <span class="status" id="status">connecting…</span>
+  <span class="spacer"></span>
+  <div class="chips" id="sourceChips">
+    <button class="chip active" data-src="POTA">POTA</button>
+    <button class="chip active" data-src="SOTA">SOTA</button>
+    <button class="chip active" data-src="WWFF">WWFF</button>
+    <button class="chip active" data-src="BOTA">BOTA</button>
+    <button class="chip active" data-src="DX">DX</button>
+    <button class="chip active" data-src="RBN">RBN</button>
+  </div>
+  <div class="chips" id="bandChips"></div>
+  <input type="text" id="search" placeholder="filter: call / program / ref / country / state / comment" />
+  <label for="maxSpotsSel" style="color: var(--muted); font-size: 11px;">show</label>
+  <select id="maxSpotsSel">
+    <option value="20">20</option>
+    <option value="50">50</option>
+    <option value="100" selected>100</option>
+    <option value="all">All</option>
+  </select>
+  <button id="openHelp" title="Help (press ?)">?</button>
+  <button id="openRig" class="primary">Radio…</button>
+</header>
+
+<main>
+<table>
+  <thead>
+    <tr>
+      <th>Time (UTC)</th>
+      <th>Src</th>
+      <th>Call</th>
+      <th class="freq">kHz</th>
+      <th>Band</th>
+      <th>Mode</th>
+      <th>Country</th>
+      <th>Activity / Loc</th>
+      <th>Spotter</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+</main>
+
+<footer>
+  <span><span id="count">0 / 0</span> spots (shown / matching)</span>
+  <span class="spacer"></span>
+  <span>Rig:</span>
+  <span id="rigPill" class="rig-pill disconnected">disconnected</span>
+  <span id="rigVfo" style="color: var(--muted);"></span>
+</footer>
+
+<!-- NCDXF/IARU beacon snapshot, refreshed every 10s -->
+<div class="beacons" id="beacons">
+  <div class="head" id="beaconsHead">
+    <strong>Beacons</strong>
+    <span class="toggle" id="beaconsToggle">[hide]</span>
+  </div>
+  <div class="body" id="beaconsBody">
+    <!-- populated by JS -->
+  </div>
+</div>
+
+<!-- Radio drawer -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="rigDrawer" aria-hidden="true">
+  <header>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <strong>Radio control</strong>
+      <span class="spacer" style="flex:1"></span>
+      <button id="closeRig">Close</button>
+    </div>
+  </header>
+  <div class="body">
+    <div class="rig-status-block">
+      <div class="row"><span class="k">Status</span><span id="dRigState">—</span></div>
+      <div class="row"><span class="k">Model</span><span id="dRigModel">—</span></div>
+      <div class="row"><span class="k">Port</span><span id="dRigPort">—</span></div>
+      <div class="row"><span class="k">VFO</span><span id="dRigVfo">—</span></div>
+      <div class="err" id="dRigErr" hidden></div>
+    </div>
+
+    <div class="field">
+      <label for="modelSel">Radio model (Hamlib)</label>
+      <select id="modelSel">
+        <option value="">— select a radio —</option>
+      </select>
+      <span id="hamlibMissing" style="color: var(--err); font-size: 12px;" hidden>
+        Hamlib not detected. Install: <code>brew install hamlib</code> (macOS) or
+        <code>sudo apt install libhamlib-utils</code> (Debian/Ubuntu), then reload.
+      </span>
+    </div>
+
+    <div class="field">
+      <label for="portSel">Serial port</label>
+      <select id="portSel">
+        <option value="">— select a port —</option>
+        <option value="__custom__">Custom… (type below)</option>
+      </select>
+      <input type="text" id="portCustom" placeholder="e.g. /dev/cu.usbserial-XXXX or 192.168.1.50:4533" hidden />
+      <button id="refreshPorts" style="align-self: flex-start; margin-top: 4px;">Refresh ports</button>
+    </div>
+
+    <div class="field">
+      <label for="baudSel">Baud rate (optional — Hamlib picks a default if blank)</label>
+      <select id="baudSel">
+        <option value="">— default —</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="listenPort">rigctld TCP listen port</label>
+      <input type="text" id="listenPort" value="4532" />
+    </div>
+  </div>
+  <div class="footer-actions">
+    <button id="btnConnect" class="primary">Connect &amp; Test</button>
+    <button id="btnRefresh">Refresh status</button>
+    <span class="spacer" style="flex:1"></span>
+    <button id="btnDisconnect" class="danger">Disconnect</button>
+  </div>
+</aside>
+
+<!-- Help / documentation drawer -->
+<aside class="drawer wide" id="helpDrawer" aria-hidden="true">
+  <header>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <strong>CWSigFind — Help</strong>
+      <span class="spacer" style="flex:1"></span>
+      <button id="closeHelp">Close (Esc)</button>
+    </div>
+  </header>
+  <div class="body" style="padding: 0;">
+    <div class="help-layout">
+      <nav class="help-nav" id="helpNav">
+        <button class="active" data-sec="overview">Overview</button>
+        <button data-sec="sources">Spot sources</button>
+        <button data-sec="programs">Activity programs</button>
+        <button data-sec="usage">Using the page</button>
+        <button data-sec="tips">Tips</button>
+        <button data-sec="glossary">Glossary</button>
+        <button data-sec="keys">Shortcuts</button>
+      </nav>
+      <div class="help-content" id="helpContent">
+
+        <section class="help-section active" data-sec="overview">
+          <h2>What is this app?</h2>
+          <p>CWSigFind is a live aggregator for CW (Morse) spots. It merges
+            real-time activity from POTA, SOTA, WWFF, WWBOTA, multiple DX
+            cluster nodes and (optionally) the Reverse Beacon Network into a
+            single sortable table.</p>
+          <p>Click any row to tune your radio to that frequency and mode over
+            Hamlib <code>rigctld</code>. The footer shows your rig's live VFO,
+            and the bottom-left widget shows which NCDXF/IARU beacon is
+            transmitting right now as a quick propagation check.</p>
+          <p class="muted">Tip: press <span class="kbd">?</span> any time to
+            open this panel and <span class="kbd">Esc</span> to close it.</p>
+        </section>
+
+        <section class="help-section" data-sec="sources">
+          <h2>Spot sources</h2>
+          <p class="muted">Each source has a chip in the header — click a chip
+            to hide that source. The colored badge below matches what you see
+            in the <strong>Src</strong> column.</p>
+          <div class="src-cards">
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge POTA">POTA</span>
+                <span class="name">Parks On The Air</span>
+                <span class="level" title="Heavy activity">
+                  <span class="bolt">⚡⚡⚡</span> heavy
+                </span>
+              </div>
+              <p>Public park activations, dominated by North America. Polled
+                from the official REST API.</p>
+              <p class="meta">Endpoint: <code>https://api.pota.app/spot/activator</code>
+                · Chip: <strong>POTA</strong></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge SOTA">SOTA</span>
+                <span class="name">Summits On The Air</span>
+                <span class="level"><span class="bolt">⚡⚡</span> moderate</span>
+              </div>
+              <p>Mountain-summit activations. Strong CW culture, lots of
+                Europe and US west-coast summits.</p>
+              <p class="meta">Endpoint: <code>https://api2.sota.org.uk/api/spots/-1/all</code>
+                · Chip: <strong>SOTA</strong></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge IOTA">IOTA</span>
+                <span class="name">Islands On The Air</span>
+                <span class="level"><span class="bolt">⚡</span> occasional</span>
+              </div>
+              <p>No dedicated feed — IOTA refs like <code>EU-005</code> or
+                <code>NA-052</code> are detected inside DX-cluster comments
+                and the island-group name is looked up from a weekly cache of
+                <code>iota-world.org</code>.</p>
+              <p class="meta">Surfaces under the <strong>DX</strong> chip with
+                an <span class="prog IOTA">IOTA</span> badge.</p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge WWFF">WWFF</span>
+                <span class="name">Worldwide Flora &amp; Fauna</span>
+                <span class="level"><span class="bolt">⚡⚡⚡</span> heavy</span>
+              </div>
+              <p>Park-style activations with strong EU/UK coverage that POTA
+                doesn't carry. Polled from the public Spotline feed.</p>
+              <p class="meta">Endpoint: <code>https://spots.wwff.co/static/spots.json</code>
+                · Chip: <strong>WWFF</strong></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge BOTA">BOTA</span>
+                <span class="name">Bunkers On The Air (WWBOTA)</span>
+                <span class="level"><span class="bolt">⚡⚡</span> moderate</span>
+              </div>
+              <p>Newer program (2024+), growing fast in Europe. Refs look
+                like <code>B/G-2453</code>. Polled from the official API with
+                ETag caching.</p>
+              <p class="meta">Endpoint: <code>https://api.wwbota.org/spots/</code>
+                · Chip: <strong>BOTA</strong></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge DX">DX</span>
+                <span class="name">DX cluster</span>
+                <span class="level"><span class="bolt">⚡⚡⚡</span> heavy</span>
+              </div>
+              <p>Persistent telnet feeds from multiple cluster nodes —
+                <code>NC7J</code> (general worldwide) and <code>S50CLX</code>
+                (filtered to POTA/SOTA/WWFF/BOTA/HEMA tags) by default;
+                <code>DXMAPS</code> is configured but off (VHF/UHF). Cluster
+                comments are also scanned for WCA / DCI / DFCF castle refs.</p>
+              <p class="meta">Endpoints: <code>dxc.nc7j.com:7373</code>,
+                <code>s50clx.infrax.si:41112</code> · Chip: <strong>DX</strong></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge RBN">RBN</span>
+                <span class="name">Reverse Beacon Network</span>
+                <span class="level" title="Firehose">
+                  <span class="bolt">⚡⚡⚡⚡</span> firehose
+                </span>
+              </div>
+              <p>Worldwide network of CW/RTTY skimmers. Massive volume —
+                disabled by default. Flip <code>[sources.rbn] enabled = true</code>
+                in <code>config.toml</code> to turn it on (great during CWT).</p>
+              <p class="meta">Endpoint: <code>telnet.reversebeacon.net:7000</code>
+                · Chip: <strong>RBN</strong></p>
+            </div>
+
+          </div>
+        </section>
+
+        <section class="help-section" data-sec="programs">
+          <h2>Activity programs tagged on spots</h2>
+          <p class="muted">When a spot belongs to an awards program, the
+            Activity column shows a colored program badge plus the reference.</p>
+          <ul>
+            <li><span class="prog POTA">POTA</span> — Parks On The Air. Refs:
+              <code>K-4567</code>, <code>VE-1234</code>.</li>
+            <li><span class="prog SOTA">SOTA</span> — Summits On The Air. Refs:
+              <code>W6/CT-001</code>.</li>
+            <li><span class="prog IOTA">IOTA</span> — Islands On The Air. Refs:
+              <code>NA-052</code>, <code>EU-005</code>. Detected from cluster
+              comments; island name resolved from the weekly IOTA cache.</li>
+            <li><span class="prog WWFF">WWFF</span> — Worldwide Flora &amp; Fauna.
+              Refs like <code>KFF-1234</code>, <code>GFF-0001</code>.</li>
+            <li><span class="prog BOTA">BOTA</span> — Bunkers On The Air. Refs:
+              <code>B/G-2453</code>.</li>
+            <li><span class="prog WCA">WCA</span> — Castle-family awards, grouped
+              under one badge for UI simplicity:
+              <ul>
+                <li><strong>WCA</strong> — World Castles Award.</li>
+                <li><strong>DCI</strong> — Diga Italiana (Italian Castles).</li>
+                <li><strong>DFCF</strong> — Diplôme Français des Châteaux Forts.</li>
+              </ul>
+              All three are picked up from explicit keywords in cluster
+              comments; the original prefix is preserved in the activity ref.</li>
+          </ul>
+        </section>
+
+        <section class="help-section" data-sec="usage">
+          <h2>Using the page</h2>
+
+          <h3>Filter chips</h3>
+          <p>Top of the header — source chips (<strong>POTA</strong>,
+            <strong>SOTA</strong>, <strong>WWFF</strong>, <strong>BOTA</strong>,
+            <strong>DX</strong>, <strong>RBN</strong>) and band chips
+            (<code>160m</code> … <code>2m</code>). Click any chip to toggle it.
+            With no band chips active, all bands are shown.</p>
+
+          <h3>Search box</h3>
+          <p>Free-text filter across callsign, program, activity ref / name,
+            country, state and comment. Type and watch the table narrow live.</p>
+
+          <h3>Max spots dropdown</h3>
+          <p>Caps the number of visible rows (20 / 50 / 100 / All) so the page
+            stays responsive during busy periods. The full client-side history
+            (last 1000 spots) is kept in memory regardless.</p>
+
+          <h3>Click a row to tune</h3>
+          <p>Click anywhere on a row to QSY your radio to that frequency and
+            mode. If the rig isn't connected yet, the Radio drawer opens
+            instead so you can connect first.</p>
+
+          <h3>Radio drawer</h3>
+          <p>Click <strong>Radio…</strong> in the header. Pick your rig model
+            (~300 Hamlib-supported radios), serial port, optional baud rate
+            and rigctld TCP port. Click <strong>Connect &amp; Test</strong> —
+            the daemon spawns <code>rigctld</code> and reads the rig's
+            current VFO/mode to verify the round-trip. The successful config
+            is saved to <code>~/.cwsigfind/rig.json</code> and auto-reconnected
+            on the next startup.</p>
+
+          <h3>Beacons widget</h3>
+          <p>Bottom-left panel: which NCDXF/IARU beacon is currently
+            transmitting on each of the five HF beacon frequencies (14.100,
+            18.110, 21.150, 24.930, 28.200 MHz). The 18-station cycle takes
+            three minutes per band; the widget polls every 10 seconds so it
+            stays in lock-step with the schedule. Click the header to
+            collapse/expand. <strong>Click any beacon row</strong> to tune
+            your radio to that beacon (always CW) — useful for a quick
+            propagation sanity-check on a given band.</p>
+        </section>
+
+        <section class="help-section" data-sec="tips">
+          <h2>Tips</h2>
+
+          <h3>CWT mini-tests (CW Ops)</h3>
+          <p>Weekly 1-hour CW sprints: <strong>Wed 1300Z / 1900Z</strong>,
+            <strong>Thu 0300Z / 0700Z</strong>. For these windows, set
+            <code>[sources.rbn] enabled = true</code> in
+            <code>config.toml</code> — RBN becomes the firehose you actually
+            want. CWT calling frequencies (kHz):</p>
+          <p class="muted">1818 · 3528 · 7028 · 10118 · 14028 · 18078 · 21028 ·
+            24908 · 28028</p>
+
+          <h3>Modes</h3>
+          <p>The server-side mode filter defaults to <strong>CW</strong>. If
+            you want SSB or digital modes too, edit
+            <code>[filter].modes</code> in <code>config.toml</code>.</p>
+
+          <h3>Multiple DX clusters</h3>
+          <p><strong>NC7J</strong> is the general worldwide spot stream;
+            <strong>S50CLX</strong> is pre-filtered to the activity programs
+            (POTA / SOTA / WWFF / BOTA / HEMA), which is usually what
+            cwsigfind users want. <strong>DXMAPS</strong> is configured but
+            disabled by default — turn it on if you do VHF/UHF CW.</p>
+        </section>
+
+        <section class="help-section" data-sec="glossary">
+          <h2>Glossary</h2>
+          <ul>
+            <li><strong>CW</strong> — Continuous Wave; Morse code.</li>
+            <li><strong>kHz</strong> — kilohertz; how frequencies are reported
+              in the table.</li>
+            <li><strong>Spot</strong> — a real-time report that
+              <em>this callsign is active on this frequency right now</em>.</li>
+            <li><strong>Spotter</strong> — the station (or automated skimmer
+              for RBN) that reported the spot.</li>
+            <li><strong>Activity ref</strong> — the program-specific reference,
+              e.g. <code>K-4567</code> (POTA), <code>W6/CT-001</code> (SOTA),
+              <code>NA-052</code> (IOTA), <code>B/G-2453</code> (BOTA).</li>
+            <li><strong>QSY</strong> — change frequency.</li>
+            <li><strong>NCDXF / IARU beacons</strong> — 18 worldwide stations
+              that take turns transmitting on five HF beacon frequencies; a
+              quick way to check propagation.</li>
+          </ul>
+        </section>
+
+        <section class="help-section" data-sec="keys">
+          <h2>Keyboard shortcuts</h2>
+          <ul>
+            <li><span class="kbd">?</span> — open this help panel
+              (only when no text input is focused).</li>
+            <li><span class="kbd">Esc</span> — close the help panel or
+              Radio drawer.</li>
+            <li><span class="kbd">Click row</span> — QSY to that spot's
+              frequency and mode (or open the Radio drawer if the rig
+              isn't connected yet).</li>
+          </ul>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script>
+const BANDS = ["160m","80m","60m","40m","30m","20m","17m","15m","12m","10m","6m","2m"];
+const enabledSources = new Set(["POTA","SOTA","WWFF","BOTA","DX","RBN"]);
+const enabledBands = new Set();
+let searchTerm = "";
+let maxVisible = 100;          // null/Infinity for "all"
+const allSpots = [];
+const MAX_KEEP = 1000;
+let rigState = { state: "disconnected", hamlib_installed: true };
+
+const rowsEl = document.getElementById("rows");
+const countEl = document.getElementById("count");
+const statusEl = document.getElementById("status");
+const searchEl = document.getElementById("search");
+const bandChipsEl = document.getElementById("bandChips");
+const rigPill = document.getElementById("rigPill");
+const rigVfoEl = document.getElementById("rigVfo");
+
+// --- spot filtering / rendering ---
+
+for (const b of BANDS) {
+  const c = document.createElement("button");
+  c.className = "chip";
+  c.dataset.band = b;
+  c.textContent = b;
+  c.onclick = () => {
+    if (enabledBands.has(b)) { enabledBands.delete(b); c.classList.remove("active"); }
+    else { enabledBands.add(b); c.classList.add("active"); }
+    rerender();
+  };
+  bandChipsEl.appendChild(c);
+}
+
+for (const chip of document.querySelectorAll("#sourceChips .chip")) {
+  chip.onclick = () => {
+    const s = chip.dataset.src;
+    if (enabledSources.has(s)) { enabledSources.delete(s); chip.classList.remove("active"); }
+    else { enabledSources.add(s); chip.classList.add("active"); }
+    rerender();
+  };
+}
+
+searchEl.oninput = () => { searchTerm = searchEl.value.trim().toLowerCase(); rerender(); };
+
+const maxSpotsSel = document.getElementById("maxSpotsSel");
+maxSpotsSel.onchange = () => {
+  maxVisible = maxSpotsSel.value === "all" ? Infinity : parseInt(maxSpotsSel.value, 10);
+  rerender();
+};
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  const hh = String(d.getUTCHours()).padStart(2,"0");
+  const mm = String(d.getUTCMinutes()).padStart(2,"0");
+  const ss = String(d.getUTCSeconds()).padStart(2,"0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function matches(s) {
+  if (!enabledSources.has(s.source)) return false;
+  if (enabledBands.size && !enabledBands.has(s.band)) return false;
+  if (searchTerm) {
+    const hay = `${s.callsign} ${s.program||""} ${s.activity_ref||""} ${s.activity_name||""} ${s.location_desc||""} ${s.country||""} ${s.state||""} ${s.comment||""}`.toLowerCase();
+    if (!hay.includes(searchTerm)) return false;
+  }
+  return true;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function rowHTML(s, isNew) {
+  const activity = (() => {
+    if (s.activity_ref) {
+      const tag = s.program ? `<span class="prog ${s.program}">${s.program}</span>` : "";
+      const ref = `<span class="park">${escapeHtml(s.activity_ref)}</span>`;
+      const name = s.activity_name ? " · " + escapeHtml(s.activity_name) : "";
+      const extra = s.activity_extra ? `  <span style="color:var(--muted)">${escapeHtml(s.activity_extra)}</span>` : "";
+      return `${tag}${ref}${name}${extra}`;
+    }
+    return escapeHtml(s.location_desc || "");
+  })();
+  const country = (() => {
+    if (s.country && s.state) return `${escapeHtml(s.country)} <span class="state">· ${escapeHtml(s.state)}</span>`;
+    if (s.country) return escapeHtml(s.country);
+    if (s.state) return escapeHtml(s.state);
+    return "";
+  })();
+  const rigOff = rigState.state !== "connected";
+  const cls = [
+    isNew ? "new-row" : "",
+    rigOff ? "rig-off" : "",
+  ].filter(Boolean).join(" ");
+  const title = rigOff
+    ? "Click to open the Radio panel — rig not connected yet"
+    : `Click anywhere to tune to ${s.frequency_khz.toFixed(1)} kHz ${s.mode}`;
+  return `<tr class="${cls}" data-freq="${s.frequency_khz}" data-mode="${escapeHtml(s.mode)}" title="${title}">
+    <td>${fmtTime(s.spotted_at)}</td>
+    <td class="src-${s.source}">${s.source}</td>
+    <td class="call">${escapeHtml(s.callsign)}</td>
+    <td class="freq">${s.frequency_khz.toFixed(1)}</td>
+    <td>${s.band || ""}</td>
+    <td>${escapeHtml(s.mode)}</td>
+    <td class="country">${country}</td>
+    <td>${activity}</td>
+    <td>${escapeHtml(s.spotter || "")}</td>
+    <td class="comment">${escapeHtml(s.comment || "")}</td>
+  </tr>`;
+}
+
+// Sort allSpots so the table is strictly time-ordered (newest first),
+// regardless of which source delivered them. Without this, POTA dumps a
+// batch, then SOTA dumps a batch, and the user sees grouping by source.
+function sortSpots() {
+  allSpots.sort((a, b) => {
+    const ta = a._t ?? (a._t = Date.parse(a.spotted_at) || 0);
+    const tb = b._t ?? (b._t = Date.parse(b.spotted_at) || 0);
+    return tb - ta;
+  });
+}
+
+function rerender() {
+  const filtered = allSpots.filter(matches);
+  const visible = isFinite(maxVisible) ? filtered.slice(0, maxVisible) : filtered;
+  rowsEl.innerHTML = visible.map(s => rowHTML(s, !!s._justArrived)).join("");
+  countEl.textContent = `${visible.length} / ${filtered.length}`;
+}
+
+function addSpot(s, animate) {
+  allSpots.push(s);
+  sortSpots();
+  if (allSpots.length > MAX_KEEP) allSpots.length = MAX_KEEP;
+  // Mark just this spot so it gets the "new row" flash animation in the
+  // upcoming render; clear immediately after so subsequent renders are calm.
+  if (animate) s._justArrived = true;
+  rerender();
+  if (animate) delete s._justArrived;
+}
+
+// Click anywhere in a row to tune. We treat the row itself as a button.
+// A click is only honoured when the user isn't selecting text — that way
+// click-and-drag to highlight a callsign still works.
+rowsEl.addEventListener("click", async (e) => {
+  const tr = e.target.closest("tr");
+  if (!tr || !rowsEl.contains(tr)) return;
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.toString().length > 0) return;
+
+  if (rigState.state !== "connected") {
+    openDrawer();
+    flashToast("Rig not connected — pick a radio and click Connect & Test.");
+    return;
+  }
+
+  const freq = parseFloat(tr.dataset.freq);
+  const mode = tr.dataset.mode;
+  tr.classList.remove("tune-ok", "tune-fail");
+  tr.classList.add("tuning");
+
+  try {
+    const r = await fetch("/api/rig/tune", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ freq_khz: freq, mode })
+    });
+    const st = await r.json();
+    tr.classList.remove("tuning");
+    if (!r.ok || st.error) {
+      tr.classList.add("tune-fail");
+      tr.title = st.error || `HTTP ${r.status}`;
+      flashToast(`Tune failed: ${st.error || `HTTP ${r.status}`}`);
+    } else {
+      tr.classList.add("tune-ok");
+      applyRigStatus(st);
+    }
+  } catch (err) {
+    tr.classList.remove("tuning");
+    tr.classList.add("tune-fail");
+    tr.title = String(err);
+    flashToast(`Tune failed: ${err}`);
+  }
+});
+
+// Lightweight inline toast at the bottom of the screen.
+let toastTimer = null;
+function flashToast(msg) {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.style.cssText =
+      "position:fixed;bottom:46px;left:50%;transform:translateX(-50%);" +
+      "background:var(--panel);border:1px solid var(--border);color:var(--fg);" +
+      "padding:8px 14px;border-radius:6px;z-index:50;max-width:80vw;" +
+      "box-shadow:0 4px 14px rgba(0,0,0,0.4);font-size:12px;";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = "1";
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = "0"; }, 3500);
+}
+
+// --- spot websocket ---
+
+function connectWs() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => { statusEl.textContent = "connected"; statusEl.className = "status connected"; };
+  ws.onclose = () => {
+    statusEl.textContent = "disconnected — reconnecting…";
+    statusEl.className = "status disconnected";
+    setTimeout(connectWs, 2000);
+  };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "snapshot") {
+      allSpots.length = 0;
+      for (const s of msg.spots) allSpots.push(s);
+      sortSpots();
+      rerender();
+    } else if (msg.type === "spot") {
+      addSpot(msg.spot, true);
+    }
+  };
+}
+connectWs();
+
+// --- radio drawer ---
+
+const drawer = document.getElementById("rigDrawer");
+const backdrop = document.getElementById("drawerBackdrop");
+const modelSel = document.getElementById("modelSel");
+const portSel = document.getElementById("portSel");
+const portCustom = document.getElementById("portCustom");
+const baudSel = document.getElementById("baudSel");
+const listenPortEl = document.getElementById("listenPort");
+const hamlibMissing = document.getElementById("hamlibMissing");
+const dRigState = document.getElementById("dRigState");
+const dRigModel = document.getElementById("dRigModel");
+const dRigPort = document.getElementById("dRigPort");
+const dRigVfo = document.getElementById("dRigVfo");
+const dRigErr = document.getElementById("dRigErr");
+
+document.getElementById("openRig").onclick = () => openDrawer();
+document.getElementById("closeRig").onclick = () => closeDrawer();
+backdrop.onclick = () => { closeDrawer(); closeHelp(); };
+
+function openDrawer() {
+  closeHelp();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.setAttribute("aria-hidden", "false");
+  refreshAll();
+}
+function closeDrawer() {
+  drawer.classList.remove("open");
+  if (!helpDrawer.classList.contains("open")) backdrop.classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+}
+
+// --- help drawer ---
+
+const helpDrawer = document.getElementById("helpDrawer");
+const helpNav = document.getElementById("helpNav");
+const helpContent = document.getElementById("helpContent");
+
+document.getElementById("openHelp").onclick = () => openHelp();
+document.getElementById("closeHelp").onclick = () => closeHelp();
+
+function openHelp() {
+  closeDrawer();
+  helpDrawer.classList.add("open");
+  backdrop.classList.add("open");
+  helpDrawer.setAttribute("aria-hidden", "false");
+}
+function closeHelp() {
+  helpDrawer.classList.remove("open");
+  if (!drawer.classList.contains("open")) backdrop.classList.remove("open");
+  helpDrawer.setAttribute("aria-hidden", "true");
+}
+
+helpNav.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-sec]");
+  if (!btn) return;
+  const sec = btn.dataset.sec;
+  for (const b of helpNav.querySelectorAll("button")) {
+    b.classList.toggle("active", b === btn);
+  }
+  for (const s of helpContent.querySelectorAll(".help-section")) {
+    s.classList.toggle("active", s.dataset.sec === sec);
+  }
+  helpContent.scrollTop = 0;
+});
+
+// Global keyboard: "?" opens help (when not typing in a field), Esc closes
+// whatever drawer is open. Guarded against text inputs so the search box
+// still works normally.
+document.addEventListener("keydown", (e) => {
+  const t = e.target;
+  const inField = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"
+    || t.tagName === "SELECT" || t.isContentEditable);
+  if (e.key === "Escape") {
+    if (helpDrawer.classList.contains("open")) { closeHelp(); e.preventDefault(); }
+    else if (drawer.classList.contains("open")) { closeDrawer(); e.preventDefault(); }
+    return;
+  }
+  if (e.key === "?" && !inField && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (helpDrawer.classList.contains("open")) closeHelp();
+    else openHelp();
+    e.preventDefault();
+  }
+});
+
+portSel.onchange = () => {
+  portCustom.hidden = portSel.value !== "__custom__";
+  if (portSel.value === "__custom__") portCustom.focus();
+};
+
+document.getElementById("refreshPorts").onclick = (e) => { e.preventDefault(); loadSerialPorts(); };
+document.getElementById("btnRefresh").onclick = () => refreshStatus();
+document.getElementById("btnConnect").onclick = doConnect;
+document.getElementById("btnDisconnect").onclick = doDisconnect;
+
+async function loadEnv() {
+  const r = await fetch("/api/rig/env"); const env = await r.json();
+  hamlibMissing.hidden = !!env.hamlib_installed;
+  baudSel.innerHTML = `<option value="">— default —</option>` +
+    env.baud_rates.map(b => `<option value="${b}">${b}</option>`).join("");
+  listenPortEl.value = env.default_listen_port;
+}
+
+async function loadModels() {
+  const r = await fetch("/api/rig/models"); const models = await r.json();
+  // Group by manufacturer.
+  const byMfg = new Map();
+  for (const m of models) {
+    if (!byMfg.has(m.mfg)) byMfg.set(m.mfg, []);
+    byMfg.get(m.mfg).push(m);
+  }
+  const mfgs = [...byMfg.keys()].sort((a,b)=>a.localeCompare(b));
+  let html = `<option value="">— select a radio —</option>`;
+  for (const mfg of mfgs) {
+    html += `<optgroup label="${escapeHtml(mfg || "(unknown)")}">`;
+    for (const m of byMfg.get(mfg)) {
+      const label = `${m.model}${m.version ? " — "+m.version : ""}${m.status && m.status !== "Stable" ? " ("+m.status+")" : ""}`;
+      html += `<option value="${m.model_id}">${escapeHtml(label)}</option>`;
+    }
+    html += `</optgroup>`;
+  }
+  modelSel.innerHTML = html;
+}
+
+async function loadSerialPorts() {
+  const r = await fetch("/api/rig/serial-ports"); const ports = await r.json();
+  const preserved = portSel.value;
+  let html = `<option value="">— select a port —</option>`;
+  for (const p of ports) {
+    const label = p.description ? `${p.device}  —  ${p.description}` : p.device;
+    html += `<option value="${escapeHtml(p.device)}">${escapeHtml(label)}</option>`;
+  }
+  html += `<option value="__custom__">Custom… (type below)</option>`;
+  portSel.innerHTML = html;
+  if (preserved && [...portSel.options].some(o => o.value === preserved)) portSel.value = preserved;
+}
+
+async function refreshStatus() {
+  const r = await fetch("/api/rig/status"); const st = await r.json();
+  applyRigStatus(st);
+}
+
+function applyRigStatus(st) {
+  const prevState = rigState.state;
+  rigState = st;
+  // Footer pill
+  rigPill.className = "rig-pill " + st.state;
+  rigPill.textContent = st.state;
+  if (st.state === "connected") {
+    rigVfoEl.textContent = `${st.model_name || ""}  ${st.freq_khz ? st.freq_khz.toFixed(1)+" kHz" : ""}  ${st.mode || ""}`.trim();
+  } else if (st.state === "error") {
+    rigVfoEl.textContent = (st.error || "error").slice(0, 80);
+  } else {
+    rigVfoEl.textContent = "";
+  }
+  // Drawer block
+  dRigState.textContent = st.state;
+  dRigModel.textContent = st.model_name || (st.model_id ? `Model #${st.model_id}` : "—");
+  dRigPort.textContent = st.port || "—";
+  dRigVfo.textContent = st.freq_khz
+    ? `${st.freq_khz.toFixed(1)} kHz  ${st.mode || ""}`
+    : "—";
+  if (st.error) { dRigErr.hidden = false; dRigErr.textContent = st.error; }
+  else { dRigErr.hidden = true; dRigErr.textContent = ""; }
+  // If connection state changed, re-render so row tooltips + cursor reflect it.
+  if (prevState !== st.state) rerender();
+}
+
+async function doConnect() {
+  const model_id = parseInt(modelSel.value || "", 10);
+  let port = portSel.value;
+  if (port === "__custom__") port = portCustom.value.trim();
+  const baud = baudSel.value ? parseInt(baudSel.value, 10) : null;
+  const listen_port = parseInt(listenPortEl.value, 10) || 4532;
+
+  if (!model_id) { alert("Pick a radio model."); return; }
+  if (!port) { alert("Pick or type a port."); return; }
+
+  applyRigStatus({ state: "connecting", model_id, port, baud, hamlib_installed: true });
+  try {
+    const r = await fetch("/api/rig/connect", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ model_id, port, baud, listen_port }),
+    });
+    const st = await r.json();
+    applyRigStatus(st);
+  } catch (e) {
+    applyRigStatus({ state: "error", error: String(e), hamlib_installed: true });
+  }
+}
+
+async function doDisconnect() {
+  const r = await fetch("/api/rig/disconnect", { method: "POST" });
+  const st = await r.json();
+  applyRigStatus(st);
+}
+
+async function loadSavedAndPrefill() {
+  // Pre-fill the form from ~/.cwsigfind/rig.json so the user doesn't have to
+  // re-pick model/port/baud every time.
+  try {
+    const r = await fetch("/api/rig/saved");
+    const saved = await r.json();
+    if (!saved) return;
+    if (saved.model_id !== undefined && saved.model_id !== null) {
+      modelSel.value = String(saved.model_id);
+    }
+    if (saved.port) {
+      const found = [...portSel.options].some(o => o.value === saved.port);
+      if (found) {
+        portSel.value = saved.port;
+        portCustom.hidden = true;
+      } else {
+        portSel.value = "__custom__";
+        portCustom.hidden = false;
+        portCustom.value = saved.port;
+      }
+    }
+    if (saved.baud) baudSel.value = String(saved.baud);
+    if (saved.listen_port) listenPortEl.value = String(saved.listen_port);
+  } catch (e) {
+    // No saved config (404/null) or transient error — fine.
+  }
+}
+
+async function refreshAll() {
+  await loadEnv();
+  await loadModels();
+  await loadSerialPorts();
+  await loadSavedAndPrefill();
+  await refreshStatus();
+}
+
+// Initial status load so the footer pill is correct even before opening the drawer.
+refreshStatus();
+// Periodic status poll (cheap, just re-reads freq/mode from rigctld).
+setInterval(refreshStatus, 5000);
+
+// --- NCDXF beacons widget ---
+
+const beaconsEl = document.getElementById("beacons");
+const beaconsBody = document.getElementById("beaconsBody");
+const beaconsHead = document.getElementById("beaconsHead");
+const beaconsToggle = document.getElementById("beaconsToggle");
+
+beaconsHead.onclick = () => {
+  const collapsed = beaconsEl.classList.toggle("collapsed");
+  beaconsToggle.textContent = collapsed ? "[show]" : "[hide]";
+};
+
+async function refreshBeacons() {
+  try {
+    const r = await fetch("/api/beacons/current");
+    if (!r.ok) return;
+    const data = await r.json();
+    beaconsBody.innerHTML = (data.beacons || []).map(b => {
+      const loc = b.location ? escapeHtml(b.location) : "";
+      const titleLoc = b.location ? ` (${b.location})` : "";
+      return (
+        `<div class="brow" data-freq="${b.frequency_khz}" data-call="${escapeHtml(b.callsign)}"` +
+        ` title="Tune ${escapeHtml(b.callsign)}${titleLoc} on ${b.frequency_khz.toFixed(0)} kHz CW">` +
+        `<span class="b">${escapeHtml(b.band)}</span>` +
+        `<span class="c">${escapeHtml(b.callsign)}` +
+          (loc ? `<span class="loc">${loc}</span>` : "") +
+        `</span>` +
+        `<span class="f">${b.frequency_khz.toFixed(0)}</span>` +
+        `</div>`
+      );
+    }).join("");
+  } catch (e) {
+    // Network blip — try again next tick.
+  }
+}
+
+// Click a beacon row to tune the radio to it (always CW). The body is
+// re-rendered every 10s so we bind once via event delegation rather than
+// attaching a handler to each row.
+beaconsBody.addEventListener("click", async (e) => {
+  const row = e.target.closest(".brow");
+  if (!row || !beaconsBody.contains(row)) return;
+  // Don't hijack a click-and-drag selection (matches spot-row behavior).
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.toString().length > 0) return;
+
+  if (rigState.state !== "connected") {
+    openDrawer();
+    flashToast("Rig not connected — pick a radio and click Connect & Test.");
+    return;
+  }
+
+  const freq = parseFloat(row.dataset.freq);
+  if (!freq || Number.isNaN(freq)) return;
+  row.classList.remove("tune-ok", "tune-fail");
+  row.classList.add("tuning");
+  try {
+    const r = await fetch("/api/rig/tune", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ freq_khz: freq, mode: "CW" })
+    });
+    const st = await r.json();
+    row.classList.remove("tuning");
+    if (!r.ok || st.error) {
+      row.classList.add("tune-fail");
+      row.title = st.error || `HTTP ${r.status}`;
+      flashToast(`Tune failed: ${st.error || `HTTP ${r.status}`}`);
+    } else {
+      row.classList.add("tune-ok");
+      applyRigStatus(st);
+    }
+  } catch (err) {
+    row.classList.remove("tuning");
+    row.classList.add("tune-fail");
+    row.title = String(err);
+    flashToast(`Tune failed: ${err}`);
+  }
+});
+
+refreshBeacons();
+// Each beacon slot is 10s. Poll matches that cadence so the highlighted
+// station rotates in real time without saturating the daemon.
+setInterval(refreshBeacons, 10000);
+</script>
+</body>
+</html>

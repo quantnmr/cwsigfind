@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CWSigFind Lite — Live CW Spots</title>
+<meta name="description" content="Browser-only live aggregator of POTA, SOTA, WWFF and WWBOTA CW spots, with an NCDXF beacon widget. The full Python version adds DX cluster, RBN, IOTA detection and Hamlib radio control." />
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+<!-- "This is the lite demo" callout — dismissable, sticky-state in localStorage. -->
+<div class="lite-banner" id="liteBanner" hidden>
+  <strong>Lite demo.</strong>
+  <span>POTA · SOTA · WWFF · BOTA + beacons, polled live in your browser.</span>
+  <span class="spacer"></span>
+  <span class="muted">For DX cluster, RBN, IOTA detection, and Hamlib radio control,
+    <a href="https://github.com/quantnmr/cwsigfind#full-python-daemon">install the full Python daemon</a>.</span>
+  <button id="dismissBanner" title="Dismiss this banner">Dismiss</button>
+</div>
+
+<header class="top-bar">
+  <h1>CWSigFind</h1>
+  <span class="tag">lite</span>
+  <span class="spacer"></span>
+  <div class="chips" id="sourceChips">
+    <button class="chip active" data-src="ALL">ALL</button>
+    <button class="chip active" data-src="POTA">POTA</button>
+    <button class="chip active" data-src="SOTA">SOTA</button>
+    <button class="chip active" data-src="WWFF">WWFF</button>
+    <button class="chip active" data-src="BOTA">BOTA</button>
+  </div>
+  <div class="chips" id="bandChips"></div>
+  <input type="text" id="search" placeholder="filter: call / program / ref / country / state / comment" />
+  <label for="maxSpotsSel" style="color: var(--muted); font-size: 11px;">show</label>
+  <select id="maxSpotsSel">
+    <option value="20">20</option>
+    <option value="50">50</option>
+    <option value="100" selected>100</option>
+    <option value="all">All</option>
+  </select>
+  <button id="openHelp" title="Help (press ?)">?</button>
+</header>
+
+<main>
+<table>
+  <thead>
+    <tr>
+      <th>Time (UTC)</th>
+      <th>Src</th>
+      <th>Call</th>
+      <th class="freq">kHz</th>
+      <th>Band</th>
+      <th>Mode</th>
+      <th>Country</th>
+      <th>Activity / Loc</th>
+      <th>Spotter</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+</main>
+
+<footer class="bottom-bar">
+  <span><span id="count">0 / 0</span> spots (shown / matching)</span>
+  <span class="spacer"></span>
+  <span>Lite demo · CW-focused live spots in your browser.</span>
+  <span>·</span>
+  <a href="https://github.com/quantnmr/cwsigfind">GitHub</a>
+  <span>·</span>
+  <a href="#" id="openHelpFooter">Help</a>
+</footer>
+
+<!-- Beacons widget (bottom-left, deterministic NCDXF schedule, 10s tick). -->
+<div class="beacons" id="beacons">
+  <div class="head" id="beaconsHead">
+    <strong>Beacons</strong>
+    <span class="toggle" id="beaconsToggle">[hide]</span>
+  </div>
+  <div class="body" id="beaconsBody"></div>
+</div>
+
+<!-- Help drawer — same pattern as the full app, content trimmed to lite features. -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer wide" id="helpDrawer" aria-hidden="true">
+  <div class="drawer-header">
+    <strong>CWSigFind Lite — Help</strong>
+    <span class="spacer"></span>
+    <button id="closeHelp">Close (Esc)</button>
+  </div>
+  <div class="body">
+    <div class="help-layout">
+      <nav class="help-nav" id="helpNav">
+        <button class="active" data-sec="overview">Overview</button>
+        <button data-sec="sources">Spot sources</button>
+        <button data-sec="programs">Activity programs</button>
+        <button data-sec="usage">Using the page</button>
+        <button data-sec="tips">Tips</button>
+        <button data-sec="full">Get the full version</button>
+      </nav>
+      <div class="help-content" id="helpContent">
+
+        <section class="help-section active" data-sec="overview">
+          <h2>What is this?</h2>
+          <p>CWSigFind Lite is a browser-only live aggregator of CW (Morse)
+            spots from four public feeds: <strong>POTA</strong>,
+            <strong>SOTA</strong>, <strong>WWFF</strong> and <strong>WWBOTA</strong>.
+            No install, no backend — every poll happens directly from this
+            tab.</p>
+          <p>The bottom-left widget shows which NCDXF/IARU beacon is on the
+            air right now on each of the five HF beacon bands; the schedule
+            is deterministic so the lite version computes it locally instead
+            of polling a server.</p>
+          <p class="muted">Press <span class="kbd">?</span> any time to open
+            this panel and <span class="kbd">Esc</span> to close it.</p>
+          <div class="cta">
+            <p style="margin:0">Want DX cluster, RBN, IOTA detection from
+              cluster comments, or Hamlib radio control?
+              <a href="https://github.com/quantnmr/cwsigfind#full-python-daemon">Install the full Python daemon →</a></p>
+          </div>
+          <h3>Source freshness</h3>
+          <div class="source-status" id="sourceStatus">
+            <span>POTA</span><span class="none" data-src="POTA">never</span><span></span>
+            <span>SOTA</span><span class="none" data-src="SOTA">never</span><span></span>
+            <span>WWFF</span><span class="none" data-src="WWFF">never</span><span></span>
+            <span>BOTA</span><span class="none" data-src="BOTA">never</span><span></span>
+          </div>
+        </section>
+
+        <section class="help-section" data-sec="sources">
+          <h2>Spot sources</h2>
+          <p class="muted">Each source has a chip in the header — click a
+            chip to hide that source. The colored badge below matches what
+            you see in the <strong>Src</strong> column. All four upstream
+            endpoints are polled directly from your browser; they advertise
+            <code>Access-Control-Allow-Origin: *</code> so no proxy is
+            required.</p>
+          <div class="src-cards">
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge POTA">POTA</span>
+                <span class="name">Parks On The Air</span>
+                <span class="level"><span class="bolt">⚡⚡⚡</span> heavy</span>
+              </div>
+              <p>Public park activations, dominated by North America. Polled
+                from the official REST API every 30s.</p>
+              <p class="meta">Endpoint: <code>https://api.pota.app/spot/activator</code></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge SOTA">SOTA</span>
+                <span class="name">Summits On The Air</span>
+                <span class="level"><span class="bolt">⚡⚡</span> moderate</span>
+              </div>
+              <p>Mountain-summit activations. Strong CW culture, lots of
+                Europe and US west-coast summits. Polled every 30s.</p>
+              <p class="meta">Endpoint: <code>https://api2.sota.org.uk/api/spots/-1/all</code></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge WWFF">WWFF</span>
+                <span class="name">Worldwide Flora &amp; Fauna</span>
+                <span class="level"><span class="bolt">⚡⚡⚡</span> heavy</span>
+              </div>
+              <p>Park-style activations with strong EU/UK coverage that POTA
+                doesn't carry. Polled from the public Spotline feed every
+                30s (upstream-recommended minimum).</p>
+              <p class="meta">Endpoint: <code>https://spots.wwff.co/static/spots.json</code></p>
+            </div>
+
+            <div class="src-card">
+              <div class="row1">
+                <span class="help-badge BOTA">BOTA</span>
+                <span class="name">Bunkers On The Air (WWBOTA)</span>
+                <span class="level"><span class="bolt">⚡⚡</span> moderate</span>
+              </div>
+              <p>Newer program, growing fast in Europe. Refs look like
+                <code>B/G-2453</code>. Polled every 60s (upstream-recommended
+                minimum), with the standard <code>age=1</code> filter so we
+                only see the last hour.</p>
+              <p class="meta">Endpoint: <code>https://api.wwbota.org/spots/?age=1</code></p>
+            </div>
+
+          </div>
+          <h3>Not in this demo</h3>
+          <p><strong>DX cluster</strong> and <strong>RBN</strong> are telnet
+            services — they can't be reached directly from a browser. The
+            full Python daemon connects to multiple cluster nodes and the
+            RBN firehose, and uses cluster comments to detect IOTA, WCA,
+            DCI and DFCF castle awards. Install instructions are under
+            <strong>Get the full version</strong>.</p>
+        </section>
+
+        <section class="help-section" data-sec="programs">
+          <h2>Activity programs</h2>
+          <p class="muted">When a spot belongs to an awards program, the
+            Activity column shows a colored badge plus the reference.</p>
+          <ul>
+            <li><span class="prog POTA">POTA</span> — Parks On The Air. Refs:
+              <code>US-0916</code>, <code>VE-1234</code>.</li>
+            <li><span class="prog SOTA">SOTA</span> — Summits On The Air.
+              Refs: <code>W6/CT-001</code>, <code>EA3/BC-039</code>.</li>
+            <li><span class="prog WWFF">WWFF</span> — Worldwide Flora &amp;
+              Fauna. Refs like <code>KFF-1234</code>, <code>DLFF-0093</code>.</li>
+            <li><span class="prog BOTA">BOTA</span> — Bunkers On The Air.
+              Refs: <code>B/G-2453</code>.</li>
+          </ul>
+          <p>Other programs the <strong>full version</strong> picks up from
+            cluster comments:</p>
+          <ul>
+            <li><span class="prog IOTA">IOTA</span> — Islands On The Air.
+              Detected from DX-cluster comments and resolved against the
+              weekly IOTA group catalog. (The catalog ships here too, so
+              this lite demo will display island names if any feed ever
+              tags one.)</li>
+            <li><span class="prog WCA">WCA</span> — World Castles Award and
+              its national friends (DCI, DFCF). Detected from DX-cluster
+              comment keywords.</li>
+          </ul>
+        </section>
+
+        <section class="help-section" data-sec="usage">
+          <h2>Using the page</h2>
+          <h3>Filter chips</h3>
+          <p>Header chips toggle each source on/off. The <strong>ALL</strong>
+            chip is a convenience: clicking it enables every source at once.
+            Band chips (<code>160m</code>…<code>2m</code>) further filter
+            by band; with no band chip active, all bands are shown.</p>
+          <h3>Search</h3>
+          <p>Free-text filter across callsign, program, activity ref/name,
+            country, state and comment. Live as you type.</p>
+          <h3>Max spots</h3>
+          <p>Caps the visible row count (20/50/100/All). The full client-side
+            history (last 1000 spots) is kept in memory regardless.</p>
+          <h3>Click a row</h3>
+          <p>In the lite demo, clicking a spot row shows a friendly toast
+            pointing you at the full Python version — radio control over
+            Hamlib lives there.</p>
+          <h3>Beacons widget</h3>
+          <p>Bottom-left panel: which NCDXF/IARU beacon is currently
+            transmitting on each of the five HF beacon frequencies (14.100,
+            18.110, 21.150, 24.930, 28.200 MHz). The 18-station cycle takes
+            three minutes per band; the widget recomputes every 10 seconds
+            so it stays in lock-step with the schedule. Click the header to
+            collapse/expand.</p>
+        </section>
+
+        <section class="help-section" data-sec="tips">
+          <h2>Tips</h2>
+          <h3>CWT mini-tests</h3>
+          <p>The CWops weekly CW sprints (Wed 1300/1900Z, Thu 0300/0700Z)
+            cluster within ±5 kHz of a fixed set of frequencies. For a
+            real-time CWT activity board you want the <strong>RBN</strong>
+            firehose, which is only available in the full Python version.</p>
+          <h3>Polling rates</h3>
+          <p>POTA / SOTA / WWFF poll every 30 seconds; WWBOTA every 60s.
+            On error, each source backs off exponentially (up to 5 minutes)
+            without affecting the others.</p>
+          <h3>State across refreshes</h3>
+          <p>The lite demo remembers your max-spots choice, source/band
+            chip selections, and whether you've dismissed the banner.
+            Everything else is rebuilt fresh on load — there's no
+            server-side history.</p>
+        </section>
+
+        <section class="help-section" data-sec="full">
+          <h2>Get the full version</h2>
+          <p>The full <strong>cwsigfind</strong> is an async Python daemon
+            that adds:</p>
+          <ul>
+            <li><strong>DX cluster</strong> over telnet — multiple nodes
+              (NC7J, S50CLX, DXMAPS) supervised in parallel.</li>
+            <li><strong>Reverse Beacon Network</strong> (RBN) — the CW
+              skimmer firehose, ideal for CWT.</li>
+            <li><strong>IOTA detection</strong> from cluster comments,
+              resolved against a weekly-refreshed catalog.</li>
+            <li><strong>WCA / DCI / DFCF</strong> castle-award detection.</li>
+            <li><strong>Hamlib radio control</strong> — click a spot row
+              and your rig QSYs to that frequency &amp; mode over
+              <code>rigctld</code>. ~300 supported rigs.</li>
+          </ul>
+
+          <h3>Install</h3>
+          <p>Requires Python 3.11+ and <code>uv</code> (one-liner install
+            on the README), plus Hamlib if you want radio control.</p>
+          <pre style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 12px;overflow:auto;color:var(--fg);font-size:12px;line-height:1.5;">git clone https://github.com/quantnmr/cwsigfind
+cd cwsigfind
+uv sync
+cp config.example.toml config.toml
+# edit your callsign in config.toml
+uv run cwsigfind
+# open http://127.0.0.1:8765</pre>
+          <p>Full install + config docs:
+            <a href="https://github.com/quantnmr/cwsigfind">github.com/quantnmr/cwsigfind</a>.</p>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
