@@ -1,6 +1,8 @@
 /* CWSigFind Lite — visual language pulled verbatim from
    src/cwsigfind/web/static/index.html so the demo feels like the full app. */
 
+/* Dark palette — the default. The light palette overrides only the colors
+   that need to flip, so the whole UI is themed by swapping these vars. */
 :root {
   --bg: #0b0d10;
   --panel: #14181d;
@@ -15,10 +17,37 @@
   --wwff: #82d68a;
   --bota: #d6b48a;
   --wca: #b78cf2;
+  --sota: #c792ea;
+  --iota: #ff9e9e;
+  --great: #b3eaff;
   --hilite: #2a3340;
   --ok: #92e8a0;
   --warn: #ffd479;
   --err: #ff8b8b;
+}
+:root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel2: #eef0f3;
+  --border: #d0d6dc;
+  --fg: #15181c;
+  --muted: #5e6670;
+  --accent: #0d6cb3;
+  /* Program/source colors get darker variants so they keep good contrast on
+     a white background while staying recognizable as the same color. */
+  --pota: #a06309;
+  --dx: #3d7a1f;
+  --rbn: #c54d20;
+  --wwff: #2f7c3a;
+  --bota: #7a5a2c;
+  --wca: #6a3fb8;
+  --sota: #843ec5;
+  --iota: #c93535;
+  --great: #0a6c99;
+  --hilite: #e3edf6;
+  --ok: #277d36;
+  --warn: #b06b14;
+  --err: #b62b2b;
 }
 
 * { box-sizing: border-box; }
@@ -114,7 +143,7 @@ thead th {
   color: var(--muted); z-index: 1;
 }
 tbody td {
-  padding: 4px 10px; border-bottom: 1px solid #1a1f25;
+  padding: 4px 10px; border-bottom: 1px solid var(--border);
   vertical-align: top; white-space: nowrap;
 }
 tbody tr { cursor: pointer; }
@@ -122,7 +151,7 @@ tbody tr:hover { background: var(--hilite); }
 .src-POTA { color: var(--pota); }
 .src-DX   { color: var(--dx); }
 .src-RBN  { color: var(--rbn); }
-.src-SOTA { color: #c792ea; }
+.src-SOTA { color: var(--sota); }
 .src-WWFF { color: var(--wwff); }
 .src-BOTA { color: var(--bota); }
 
@@ -132,8 +161,8 @@ tbody tr:hover { background: var(--hilite); }
   border: 1px solid currentColor;
 }
 .prog.POTA { color: var(--pota); }
-.prog.SOTA { color: #c792ea; }
-.prog.IOTA { color: #ff9e9e; }
+.prog.SOTA { color: var(--sota); }
+.prog.IOTA { color: var(--iota); }
 .prog.WWFF { color: var(--wwff); }
 .prog.BOTA { color: var(--bota); }
 .prog.WCA  { color: var(--wca); }
@@ -219,7 +248,7 @@ tbody tr:hover { background: var(--hilite); }
 .propagation .ix .val.dim     { color: var(--muted); }
 .propagation .ix .val.ok      { color: var(--ok); }
 .propagation .ix .val.good    { color: var(--accent); }
-.propagation .ix .val.great   { color: #b3eaff; }
+.propagation .ix .val.great   { color: var(--great); }
 .propagation .ix .val.amber   { color: var(--warn); }
 .propagation .ix .val.red     { color: var(--err); }
 .propagation .ix .val.muted   { color: var(--muted); }
@@ -315,8 +344,8 @@ footer.bottom-bar a:hover { text-decoration: underline; }
   border: 1px solid currentColor; font-size: 11px; font-weight: 600;
   letter-spacing: 0.5px; }
 .help-badge.POTA { color: var(--pota); }
-.help-badge.SOTA { color: #c792ea; }
-.help-badge.IOTA { color: #ff9e9e; }
+.help-badge.SOTA { color: var(--sota); }
+.help-badge.IOTA { color: var(--iota); }
 .help-badge.WWFF { color: var(--wwff); }
 .help-badge.BOTA { color: var(--bota); }
 .help-badge.DX   { color: var(--dx); }

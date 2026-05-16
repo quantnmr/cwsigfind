@@ -4,7 +4,23 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>CWSigFind — Live Spots</title>
+<!-- FOUC-free theme init: read the saved theme and apply it BEFORE the
+     stylesheet evaluates so the page never flashes the wrong palette. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("cwsig.theme");
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches
+          ? "light" : "dark";
+      }
+      document.documentElement.dataset.theme = t;
+    } catch (e) { /* localStorage blocked → stay on default dark */ }
+  })();
+</script>
 <style>
+  /* Dark palette — the default. The light palette overrides only the colors
+     that need to flip, so the whole UI is themed by swapping these vars. */
   :root {
     --bg: #0b0d10;
     --panel: #14181d;
@@ -19,10 +35,37 @@
     --wwff: #82d68a;
     --bota: #d6b48a;
     --wca: #b78cf2;
+    --sota: #c792ea;
+    --iota: #ff9e9e;
+    --great: #b3eaff;
     --hilite: #2a3340;
     --ok: #92e8a0;
     --warn: #ffd479;
     --err: #ff8b8b;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --panel2: #eef0f3;
+    --border: #d0d6dc;
+    --fg: #15181c;
+    --muted: #5e6670;
+    --accent: #0d6cb3;
+    /* Program/source colors get darker variants so they keep good contrast on
+       a white background while staying recognizable as the same color. */
+    --pota: #a06309;
+    --dx: #3d7a1f;
+    --rbn: #c54d20;
+    --wwff: #2f7c3a;
+    --bota: #7a5a2c;
+    --wca: #6a3fb8;
+    --sota: #843ec5;
+    --iota: #c93535;
+    --great: #0a6c99;
+    --hilite: #e3edf6;
+    --ok: #277d36;
+    --warn: #b06b14;
+    --err: #b62b2b;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
@@ -71,7 +114,7 @@
   thead th { position: sticky; top: 0; background: var(--panel); text-align: left;
     padding: 6px 10px; font-weight: 600; border-bottom: 1px solid var(--border);
     color: var(--muted); z-index: 1; }
-  tbody td { padding: 4px 10px; border-bottom: 1px solid #1a1f25; vertical-align: top;
+  tbody td { padding: 4px 10px; border-bottom: 1px solid var(--border); vertical-align: top;
     white-space: nowrap; }
   tbody tr { cursor: pointer; }
   tbody tr.rig-off { cursor: help; }
@@ -90,15 +133,15 @@
   .src-POTA { color: var(--pota); }
   .src-DX   { color: var(--dx); }
   .src-RBN  { color: var(--rbn); }
-  .src-SOTA { color: #c792ea; }
+  .src-SOTA { color: var(--sota); }
   .src-WWFF { color: var(--wwff); }
   .src-BOTA { color: var(--bota); }
   .prog { display: inline-block; padding: 0 5px; font-size: 10px;
     border-radius: 3px; margin-right: 4px; vertical-align: 1px;
     border: 1px solid currentColor; }
   .prog.POTA { color: var(--pota); }
-  .prog.SOTA { color: #c792ea; }
-  .prog.IOTA { color: #ff9e9e; }
+  .prog.SOTA { color: var(--sota); }
+  .prog.IOTA { color: var(--iota); }
   .prog.WWFF { color: var(--wwff); }
   .prog.BOTA { color: var(--bota); }
   .prog.WCA  { color: var(--wca); }
@@ -166,7 +209,7 @@
   .propagation .ix .val.dim   { color: var(--muted); }
   .propagation .ix .val.ok    { color: var(--ok); }
   .propagation .ix .val.good  { color: var(--accent); }
-  .propagation .ix .val.great { color: #b3eaff; }
+  .propagation .ix .val.great { color: var(--great); }
   .propagation .ix .val.amber { color: var(--warn); }
   .propagation .ix .val.red   { color: var(--err); }
   .propagation .ix .val.muted { color: var(--muted); }
@@ -278,8 +321,8 @@
     border: 1px solid currentColor; font-size: 11px; font-weight: 600;
     letter-spacing: 0.5px; }
   .help-badge.POTA { color: var(--pota); }
-  .help-badge.SOTA { color: #c792ea; }
-  .help-badge.IOTA { color: #ff9e9e; }
+  .help-badge.SOTA { color: var(--sota); }
+  .help-badge.IOTA { color: var(--iota); }
   .help-badge.WWFF { color: var(--wwff); }
   .help-badge.BOTA { color: var(--bota); }
   .help-badge.DX   { color: var(--dx); }
@@ -313,6 +356,7 @@
     <option value="100" selected>100</option>
     <option value="all">All</option>
   </select>
+  <button id="themeToggle" type="button" title="Toggle light/dark theme" aria-label="Toggle theme">🌙</button>
   <button id="openHelp" title="Help (press ?)">?</button>
   <button id="openRig" class="primary">Radio…</button>
 </header>
@@ -902,6 +946,23 @@ pauseBtn.addEventListener("click", () => {
   }
   updatePauseBtn();
 });
+
+// --- Theme toggle --- the initial theme was applied by the inline <head>
+// script (FOUC-safe). Here we just keep the button label in sync and let the
+// user flip it; the choice is persisted to localStorage.
+const themeToggleBtn = document.getElementById("themeToggle");
+function syncThemeBtn() {
+  const t = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  themeToggleBtn.textContent = t === "light" ? "☀" : "🌙";
+  themeToggleBtn.title = t === "light" ? "Switch to dark theme" : "Switch to light theme";
+}
+themeToggleBtn.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("cwsig.theme", next); } catch (e) { /* ignore */ }
+  syncThemeBtn();
+});
+syncThemeBtn();
 
 // Click anywhere in a row to tune. We treat the row itself as a button.
 // A click is only honoured when the user isn't selecting text — that way

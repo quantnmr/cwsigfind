@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>CWSigFind Lite — Live CW Spots</title>
 <meta name="description" content="Browser-only live aggregator of POTA, SOTA, WWFF and WWBOTA CW spots, with an NCDXF beacon widget. The full Python version adds DX cluster, RBN, IOTA detection and Hamlib radio control." />
+<!-- FOUC-free theme init: read the saved theme and apply it BEFORE the
+     stylesheet evaluates so the page never flashes the wrong palette. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("cwsig.theme");
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches
+          ? "light" : "dark";
+      }
+      document.documentElement.dataset.theme = t;
+    } catch (e) { /* localStorage blocked → stay on default dark */ }
+  })();
+</script>
 <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -41,6 +55,7 @@
     <option value="100" selected>100</option>
     <option value="all">All</option>
   </select>
+  <button id="themeToggle" type="button" title="Toggle light/dark theme" aria-label="Toggle theme">🌙</button>
   <button id="openHelp" title="Help (press ?)">?</button>
 </header>
 

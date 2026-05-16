@@ -309,6 +309,23 @@ pauseBtn.addEventListener("click", () => {
   updatePauseBtn();
 });
 
+// --- Theme toggle --- the initial theme was applied by the inline <head>
+// script (FOUC-safe). Here we just keep the button label in sync and let the
+// user flip it; the choice is persisted to localStorage.
+const themeToggleBtn = document.getElementById("themeToggle");
+function syncThemeBtn() {
+  const t = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  themeToggleBtn.textContent = t === "light" ? "☀" : "🌙";
+  themeToggleBtn.title = t === "light" ? "Switch to dark theme" : "Switch to light theme";
+}
+themeToggleBtn.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("cwsig.theme", next); } catch (e) { /* ignore */ }
+  syncThemeBtn();
+});
+syncThemeBtn();
+
 // ---------------------------------------------------------------------------
 // Row clicks → friendly "go install the full version" toast.
 // ---------------------------------------------------------------------------
