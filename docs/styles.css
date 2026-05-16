@@ -71,6 +71,15 @@ header.top-bar .utc-clock {
 }
 header.top-bar .utc-clock .label { color: var(--muted); margin-left: 4px;
   font-size: 10px; letter-spacing: 0.5px; }
+/* Pause button: freezes the spot-table render while polling continues in
+   the background. Badge shows how many new spots arrived while paused. */
+header.top-bar .pause-btn {
+  font-size: 12px; padding: 3px 9px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--fg);
+  cursor: pointer; font-variant-numeric: tabular-nums;
+}
+header.top-bar .pause-btn:hover { background: var(--hilite, var(--panel2)); }
+header.top-bar .pause-btn.paused { color: var(--warn); border-color: var(--warn); }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {

@@ -267,12 +267,47 @@ function addSpot(s) {
   allSpots.push(s);
   sortSpots();
   if (allSpots.length > MAX_KEEP) allSpots.length = MAX_KEEP;
+  // While the user has the table paused, accept the spot into the buffer
+  // (so dedup + sort stay correct) but skip the DOM rerender. The pause
+  // button's "+N pending" counter shows what's queued.
+  if (isPaused) {
+    pendingNew++;
+    updatePauseBtn();
+    return;
+  }
   s._justArrived = true;
   rerender();
   // The flash animation is CSS-driven; clearing the flag right after the
   // render keeps subsequent rerenders calm.
   delete s._justArrived;
 }
+
+// --- Pause button --- pollers keep running while paused (so dedup and the
+// chronological sort stay correct), only the table render is suppressed.
+// User-driven rerenders (chip click, search, max-spots) still go through.
+const pauseBtn = document.getElementById("pauseBtn");
+let isPaused = false;
+let pendingNew = 0;
+function updatePauseBtn() {
+  if (isPaused) {
+    pauseBtn.textContent = pendingNew > 0 ? `▶ resume (+${pendingNew})` : "▶ resume";
+    pauseBtn.classList.add("paused");
+    pauseBtn.title = "Resume live updates";
+  } else {
+    pauseBtn.textContent = "⏸ pause";
+    pauseBtn.classList.remove("paused");
+    pauseBtn.title = "Pause live updates";
+  }
+}
+pauseBtn.addEventListener("click", () => {
+  isPaused = !isPaused;
+  if (!isPaused) {
+    // Flush whatever arrived while paused with one render.
+    pendingNew = 0;
+    rerender();
+  }
+  updatePauseBtn();
+});
 
 // ---------------------------------------------------------------------------
 // Row clicks → friendly "go install the full version" toast.
