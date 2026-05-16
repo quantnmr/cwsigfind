@@ -302,7 +302,7 @@
     <button class="chip active" data-src="WWFF">WWFF</button>
     <button class="chip active" data-src="BOTA">BOTA</button>
     <button class="chip active" data-src="DX">DX</button>
-    <button class="chip active" data-src="RBN">RBN</button>
+    <button class="chip" data-src="RBN" title="RBN is a high-volume firehose — click to enable">RBN</button>
   </div>
   <div class="chips" id="bandChips"></div>
   <input type="text" id="search" placeholder="filter: call / program / ref / country / state / comment" />
@@ -728,7 +728,7 @@
 
 <script>
 const BANDS = ["160m","80m","60m","40m","30m","20m","17m","15m","12m","10m","6m","2m"];
-const enabledSources = new Set(["POTA","SOTA","WWFF","BOTA","DX","RBN"]);
+const enabledSources = new Set(["POTA","SOTA","WWFF","BOTA","DX"]);
 const enabledBands = new Set();
 let searchTerm = "";
 let maxVisible = 100;          // null/Infinity for "all"
