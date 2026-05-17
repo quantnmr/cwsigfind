@@ -1,3 +1,7 @@
+import asyncio
+
+import pytest
+
 from cwsigfind.sources.dxcluster import (
     DXClusterSource,
     extract_program_ref,
@@ -270,3 +274,31 @@ def test_extract_priority_bota_over_pota():
     p, r = extract_program_ref("B/G-0001 (also visited K-5051)")
     assert p == "BOTA"
     assert r == "B/G-0001"
+
+
+# ---------------------------------------------------------------------------
+# Half-open TCP detection — regression test for the case where RBN connects
+# successfully but the socket then silently goes half-open (peer crash, NAT
+# eviction, etc.). _read_loop must time out and raise so the supervisor can
+# reconnect; without this the source produces zero spots forever.
+# ---------------------------------------------------------------------------
+
+
+class _SilentReader:
+    """Asyncio reader stub whose readline() hangs until cancelled."""
+
+    async def readline(self) -> bytes:
+        await asyncio.Event().wait()  # never set
+        return b""
+
+
+def test_read_loop_times_out_when_peer_goes_silent():
+    src = DXClusterSource.__new__(DXClusterSource)
+    src.name = "RBN-test"
+    src.read_timeout = 0.05  # tiny timeout so the test runs fast
+
+    async def go():
+        await src._read_loop(_SilentReader())
+
+    with pytest.raises(ConnectionError, match="no data for"):
+        asyncio.run(go())

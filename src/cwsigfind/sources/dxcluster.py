@@ -236,6 +236,7 @@ class DXClusterSource(SpotSource):
         login_commands: list[str] | None = None,
         connect_timeout: float = 20.0,
         login_timeout: float = 15.0,
+        read_timeout: float = 180.0,
         encoding: str = "latin-1",
         label: str | None = None,
     ) -> None:
@@ -246,6 +247,13 @@ class DXClusterSource(SpotSource):
         self.login_commands = list(login_commands or [])
         self.connect_timeout = connect_timeout
         self.login_timeout = login_timeout
+        # Max time we'll wait between any two bytes from the peer before we
+        # declare the TCP connection half-open and let the supervisor reconnect.
+        # Half-open sockets (peer crash, NAT eviction, ISP route flap) don't
+        # surface as EOF or errors — they just silently hang. RBN and busy DX
+        # cluster nodes always emit something well within 180s, so a timeout
+        # this long catches dead connections without ever firing under load.
+        self.read_timeout = read_timeout
         self.encoding = encoding
         # Human-friendly label used in logs and surfaced in `spot.comment` so
         # users can tell *which* cluster delivered a spot. The source tag
@@ -299,7 +307,18 @@ class DXClusterSource(SpotSource):
 
     async def _read_loop(self, reader) -> None:
         while True:
-            line = await reader.readline()
+            try:
+                line = await asyncio.wait_for(
+                    reader.readline(), timeout=self.read_timeout
+                )
+            except asyncio.TimeoutError as e:
+                # No bytes for read_timeout seconds → assume the socket is
+                # half-open (silent peer disconnect). Raise so the supervisor
+                # treats it as a crash and reconnects with backoff.
+                raise ConnectionError(
+                    f"{self.name}: no data for {self.read_timeout:.0f}s — "
+                    "treating connection as dead"
+                ) from e
             if not line:
                 raise ConnectionError(f"{self.name}: peer closed connection")
             text = line.rstrip("\r\n")
